@@ -80,12 +80,55 @@ claude --dangerously-skip-permissions
 
 ### Available tasks
 
-| Template | Task | Time budget | Experiments/hour |
-|----------|------|-------------|------------------|
-| `mujoco/fetchreach` | Reach a target position | 10 seconds | ~30 |
-| `mujoco/fetchpush` | Push a cube to a goal | 10 minutes | ~5 |
-| `mujoco/fetchpickplace` | Pick and place an object | 30 minutes | ~2 |
-| `isaac/fetchreach` | Reach (Isaac Sim) | 60 seconds | prototype |
+| Template | Task | Family | Success metric | Time budget |
+|----------|------|--------|----------------|-------------|
+| `mujoco/fetchreach` | Reach a target position | goal-conditioned | distance < 0.05 | 10 seconds |
+| `mujoco/fetchpush` | Push a cube to a goal | goal-conditioned | distance < 0.05 | 10 minutes |
+| `mujoco/fetchpickplace` | Pick and place an object | goal-conditioned | distance < 0.05 | 30 minutes |
+| `isaac/fetchreach` | Reach (Isaac Sim) | goal-conditioned (prototype) | distance < 0.05 | 60 seconds |
+| `gym/pendulum` | Swing-up & balance | classic-control | episode return ≥ -200 | 60 seconds |
+| `libero/lift` | Pick & lift (LIBERO) | image+proprio (prototype) | terminal reward = 1 | 10 minutes |
+
+The `Family` column matters because the **eval contract differs per family**. Goal-conditioned templates use `core/evaluate.py` (distance-to-goal). Other families ship their own `evaluate.py` override.
+
+## Adding a new template (the harness contract)
+
+A template lives at `templates/<sim>/<task>/` and provides any subset of these files. Files **not** provided fall back to `core/`.
+
+| File | Required? | When to override |
+|------|-----------|------------------|
+| `prepare.py` | yes | always — defines `ENV_ID`, `TIME_BUDGET`, `make_env`, `flatten_obs`, `get_obs_dim`, `get_action_dim`, `get_action_bounds` |
+| `evaluate.py` | only if your env doesn't fit `obs["achieved_goal"]/obs["desired_goal"]` | classic-control, image-based, or any non-goal-conditioned env |
+| `program.md.template` | only if the agent needs different instructions (e.g. "rewrite train.py because HER doesn't apply") | non-default algorithm fit |
+| `train.py` | only if the SAC+HER baseline is wildly wrong for your env | rare — usually let the agent rewrite it as exp 1 |
+| `pyproject.toml` | only if you need extra deps (e.g. robosuite, isaac-lab) | for non-Gymnasium envs |
+
+`prepare.py` must export this exact surface (used by `core/train.py`):
+
+```python
+TIME_BUDGET: int                    # seconds
+ENV_ID: str                         # informative; the harness can ignore it
+def make_env(env_id=ENV_ID, render_mode=None) -> gym.Env
+def flatten_obs(obs_dict) -> np.ndarray              # vector input to the policy
+def get_obs_dim(env_id=ENV_ID) -> int
+def get_action_dim(env_id=ENV_ID) -> int
+def get_action_bounds(env_id=ENV_ID) -> (np.ndarray, np.ndarray)
+```
+
+If your env is not goal-conditioned, wrap it so `obs` is always a dict with at least `{"observation": np.ndarray}`. See `templates/gym/pendulum/prepare.py` for a working shim.
+
+`evaluate.py` (when overridden) must export:
+
+```python
+EVAL_EPISODES: int
+RENDER_EPISODES: int
+def evaluate(policy_fn, env_id=ENV_ID, n_episodes=EVAL_EPISODES) -> dict   # keys: success_rate, mean_reward, mean_distance, per_episode
+def render_episodes(policy_fn, env_id=ENV_ID, n_episodes=RENDER_EPISODES, output_dir="./renders", show_window=False) -> dict
+```
+
+Keep the **return-dict shape identical** to `core/evaluate.py` so `train.py` works unchanged. The third metric (`mean_distance`) is repurposed per family — for Pendulum it's mean `|theta_dot|` at episode end; for image-based tasks it could be mean Cartesian error.
+
+A template is automatically marked `(prototype)` in `setup_task.py --list` if its `prepare.py` contains `NotImplementedError` (see `templates/libero/lift/`).
 
 ## Custom program.md
 
@@ -130,13 +173,19 @@ program.md                   -- agent instructions
 pyproject.toml               -- dependencies
 
 core/                        -- shared source files for the template system
+                                (default goal-conditioned harness)
 templates/
-  mujoco/                    -- MuJoCo task templates
+  mujoco/                    -- MuJoCo Fetch templates (goal-conditioned)
     fetchreach/prepare.py    -- FetchReach-v4, 10s budget
     fetchpush/prepare.py     -- FetchPush-v4, 10min budget
     fetchpickplace/prepare.py -- FetchPickAndPlace-v4, 30min budget
-  isaac/                     -- Isaac Sim task templates (prototype)
+  gym/                       -- Gymnasium classic-control templates
+    pendulum/                -- prepare.py + evaluate.py + program.md.template
+                                override (non-goal-conditioned harness)
+  isaac/                     -- Isaac Sim templates (prototype)
     fetchreach/              -- prepare.py, evaluate.py, pyproject.toml overrides
+  libero/                    -- LIBERO / robosuite templates (prototype)
+    lift/                    -- prepare.py stub (NotImplementedError)
 setup_task.py                -- assembles template -> experiment directory
 ```
 

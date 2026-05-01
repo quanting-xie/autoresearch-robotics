@@ -1,0 +1,135 @@
+# autoresearch — Pendulum (classic control)
+
+This is an experiment to have an LLM do its own RL research — with visual feedback.
+
+## What makes this different
+
+Unlike standard LLM training research (where the metric is just a number), RL research has a **visual** component. After each experiment, the policy's behavior is rendered and **you analyze the rendered frames directly**. You get both quantitative metrics **and** qualitative visual feedback to guide your next experiment.
+
+## ⚠ Template-specific note (read first)
+
+This template is the *non-goal-conditioned* variant of the autoresearch harness. The env is `Pendulum-v1`, a classic continuous-control task with **no `achieved_goal` / `desired_goal`**. The shipped baseline `train.py` is SAC+HER — **HER does not apply here** because there is no goal to relabel, and the achieved/desired goal fields in the obs are zero stubs from the env shim. Expect the baseline to learn poorly.
+
+**Your first experiment should be to rewrite `train.py` to drop HER** and use plain SAC against the env reward. After that, the loop runs normally.
+
+The success metric is also different from goal-conditioned tasks:
+- `eval_success_rate` = fraction of eval episodes with `episode_return >= -200`
+- `eval_mean_reward` = average episode return (Pendulum reward is in [-16.27, 0]/step; perfect = 0)
+- `eval_mean_distance` = average `|theta_dot|` at episode end (settledness proxy — lower is better)
+
+## Setup
+
+To set up a new experiment, work with the user to:
+
+1. **Agree on a run tag**: propose a tag based on today's date (e.g. `mar9`). The branch `autoresearch/<tag>` must not already exist — this is a fresh run.
+2. **Create the branch**: `git checkout -b autoresearch/<tag>` from current master.
+3. **Read the in-scope files**:
+   - `README.md` — repository context.
+   - `prepare.py` — fixed infrastructure: env factory, obs utilities. Do not modify.
+   - `evaluate.py` — fixed infrastructure: eval, rendering. Do not modify.
+   - `train.py` — the file you modify. Currently SAC+HER; you'll be rewriting this for non-goal envs.
+4. **Verify environment**: `uv run python -c "from prepare import make_env; e = make_env(); e.reset(); e.close(); print('OK')"`.
+5. **Initialize results.tsv**: Create `results.tsv` with header row.
+6. **Confirm and go**.
+
+## Experimentation
+
+Each experiment trains for **{{TIME_BUDGET_HUMAN}}** wall-clock and then auto-evaluates+renders. Launch as `uv run train.py --headless`.
+
+**What you CAN do:** Modify `train.py`. The baseline is SAC+HER — for this template, expect to rip out HER and rewrite the algorithm. Areas to explore:
+- Drop HER, use vanilla SAC against env reward (the obvious first move)
+- Try TD3 / DDPG / PPO instead
+- Hyperparameters: LR, gamma, tau, alpha
+- Network architecture, exploration noise, update frequency
+- Reward shaping (within training; eval metric is fixed)
+
+**What you CANNOT do:** modify `prepare.py` / `evaluate.py`, install new packages, change the env id or success threshold.
+
+**Goal:** maximize `eval_success_rate` (= fraction of episodes with return ≥ -200). Random policy ≈ 0%.
+
+**Simplicity criterion**: simpler is better. A small improvement that adds ugly complexity is not worth it.
+
+## Output format
+
+```
+---
+eval_success_rate: 0.700000
+eval_mean_reward:  -150.000000
+eval_mean_distance:0.234000
+training_seconds:  60.1
+total_seconds:     85.2
+peak_vram_mb:      512.5
+total_steps:       30000
+total_episodes:    150
+total_updates:     29000
+num_params:        100,352
+buffer_size:       30,000
+```
+
+## Logging results
+
+When an experiment is done, log to `results.tsv` (tab-separated):
+
+```
+commit	success_rate	mean_reward	vlm_summary	status	description
+```
+
+## The experiment loop
+
+The experiment runs on a dedicated branch (e.g. `autoresearch/mar9`).
+
+LOOP FOREVER:
+
+### 1. ANALYZE (read accumulated knowledge)
+- Read `experiment_history.json` (insights, failed_directions, promising_directions, recent experiments)
+- Read `visual_feedback.txt`
+- Read `results.tsv`
+
+### 2. PLAN (formulate a hypothesis)
+- Identify the bottleneck (use visual feedback)
+- Check history (don't repeat failed directions)
+- Hypothesis: "I expect [specific change] to improve success_rate because [evidence]"
+
+### 3. EXECUTE
+
+**HARD CHECKPOINT — before you run `train.py` for experiment N+1, the previous experiment's bookkeeping MUST be complete.** Verify all required fields (`hypothesis`, `vlm_feedback_summary`, `vlm_failure_modes`, `vlm_suggestions`, `status`, `commit`, `lesson_learned`) are populated for the previous entry in `experiment_history.json`. If any are missing, STOP and backfill before proceeding.
+
+- Edit `train.py` with your experimental change
+- `git commit -am "expN: <hypothesis>"`
+- Run: `uv run train.py --headless > run.log 2>&1`
+- Use `run_in_background: true` (Bash 10-min limit). Kill if >{{KILL_TIMEOUT_MINUTES}} min.
+
+### 4. EVALUATE (automatic)
+- Quantitative metrics + rendered frames in `./renders/` + experiment_history.json updated.
+
+### 5. VISUAL ANALYSIS
+- Open every PNG in `./renders/` (3 episodes × 3 frames = 9 PNGs).
+- Compare to `./renders_best/` if it exists.
+- Write `visual_feedback.txt`: behavior described, hypothesis assessed, failure modes named, concrete next change proposed.
+
+### 6. SYNTHESIZE — MANDATORY
+Update every required field in `experiment_history.json`, then **commit `experiment_history.json` as its own commit** (separate from any train.py change).
+
+### 7. DECIDE
+- success_rate improved → keep, advance branch.
+- equal or worse → discard via `git reset`.
+
+### 8. REPEAT
+
+## Key files
+
+```
+prepare.py              — env factory, obs utilities (read-only)
+evaluate.py             — evaluation, rendering (read-only)
+train.py                — SAC+HER baseline (you rewrite this; HER is N/A here)
+program.md              — these instructions
+experiment_history.json — persistent structured memory
+results.tsv             — human-readable experiment log
+visual_feedback.txt     — latest visual analysis (you write this)
+renders/                — latest rendered frames + video
+renders_best/           — frames from the best experiment so far
+```
+
+**Timeout**: each experiment ≈ {{EXPERIMENT_TIMEOUT_HUMAN}} ({{TIME_BUDGET_HUMAN}} train + eval/render overhead). Kill if >{{KILL_TIMEOUT_MINUTES}} min.
+
+**NEVER STOP**: Loop runs until the human interrupts. If out of ideas, re-read history, combine near-misses, try radical changes.

@@ -148,6 +148,20 @@ Write the hypothesis in your commit message.
 
 ### 3. EXECUTE
 
+**HARD CHECKPOINT — before you run `train.py` for experiment N+1, the previous experiment's bookkeeping MUST be complete.**
+
+Verify, on the previous experiment's entry in `experiment_history.json`, that ALL of these fields are populated (non-empty, non-null):
+  - `hypothesis`
+  - `vlm_feedback_summary`
+  - `vlm_failure_modes`
+  - `vlm_suggestions`
+  - `status` (`keep` or `discard`)
+  - `commit` (set whenever you kept the change; otherwise note the discard)
+  - `lesson_learned`
+
+If ANY of those are missing for the previous experiment, STOP. Do not run `train.py` again. Go back to step 5/6 and backfill — read `renders/` and `run.log` for that experiment, then update and commit `experiment_history.json` separately. Only after the audit trail is intact do you proceed.
+
+Then:
 - Edit `train.py` with your experimental change
 - `git commit` with a message that includes your hypothesis
 - Run: `uv run train.py --headless > run.log 2>&1`
@@ -176,30 +190,36 @@ After the training script finishes, **you** analyze the rendered frames:
    - What concrete change should be tried next and why? Be specific (e.g., "increase HER_K from 4 to 8" not "try different hyperparameters")
 5. **Write `visual_feedback.txt`**: Write your analysis to this file for future reference
 
-### 6. SYNTHESIZE (update persistent memory)
+### 6. SYNTHESIZE (update persistent memory) — MANDATORY
 
-After reading results, update `experiment_history.json` to record what you learned:
+This step is NOT optional and NOT skippable, no matter how full your context feels. The audit trail in `experiment_history.json` is what makes the loop scientific instead of random — if you skip this step, future iterations cannot learn from this one.
+
+After reading results:
 
 ```bash
 grep "^eval_success_rate:\|^eval_mean_reward:" run.log
 cat visual_feedback.txt
 ```
 
-Then edit `experiment_history.json` to fill in:
+Then edit `experiment_history.json` and fill in EVERY field below for the experiment that just ran:
 - **commit**: the git commit hash (7 chars)
 - **description**: what you changed
-- **hypothesis**: what you expected
+- **hypothesis**: what you expected (1–2 sentences, the one from your PLAN step)
 - **hypothesis_confirmed**: true/false/null
 - **lesson_learned**: what you now know that you didn't before
 - **vlm_feedback_summary**: one-line summary from your visual analysis
-- **vlm_failure_modes**: list of observed failure modes
-- **vlm_suggestions**: list of your suggestions for next steps
-- **status**: "keep" or "discard"
+- **vlm_failure_modes**: list of observed failure modes (≥1 entry, even on success)
+- **vlm_suggestions**: list of your suggestions for next steps (≥1 entry)
+- **status**: `"keep"` or `"discard"`
 - Update **insights[]** if you discovered a new confirmed pattern
 - Update **failed_directions[]** if this direction failed (so you don't repeat it)
 - Update **promising_directions[]** with new ideas from your visual analysis
 
+Then **commit `experiment_history.json` as its own commit**, separate from any `train.py` change. Suggested message: `expN: bookkeeping`. The separate commit makes the bookkeeping visible in `git log` and recoverable if a later experiment is reverted.
+
 Also log to `results.tsv` for human-readable tracking.
+
+**Self-check before moving on**: re-open `experiment_history.json` and confirm the entry you just wrote has no empty strings and no nulls in the required fields above. If any are still empty, fix them now — the next iteration's HARD CHECKPOINT in step 3 will block you otherwise.
 
 ### 7. DECIDE
 

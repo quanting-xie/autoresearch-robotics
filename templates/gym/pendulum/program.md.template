@@ -81,7 +81,12 @@ The experiment runs on a dedicated branch (e.g. `autoresearch/mar9`).
 LOOP FOREVER:
 
 ### 1. ANALYZE (read accumulated knowledge)
+
+**1a. Literature scan (MANDATORY on experiment 1; on demand thereafter).** Use `WebSearch` + `WebFetch` to find 2–4 recent relevant papers (e.g. `"Pendulum-v1" SAC reinforcement learning 2024 2025`, `entropy-regularized RL improvements arxiv`). Capture title / arxiv id / one-sentence idea / applicability in `literature_notes.md`. On experiments 2+, re-read the file first; only re-search on new directions or after a 3-experiment stall.
+
+**1b. Read accumulated knowledge.**
 - Read `experiment_history.json` (insights, failed_directions, promising_directions, recent experiments)
+- Read `literature_notes.md` (if it exists)
 - Read `visual_feedback.txt`
 - Read `results.tsv`
 
@@ -124,6 +129,7 @@ evaluate.py             — evaluation, rendering (read-only)
 train.py                — SAC+HER baseline (you rewrite this; HER is N/A here)
 program.md              — these instructions
 experiment_history.json — persistent structured memory
+literature_notes.md     — distilled findings from web literature scans (you write this; bootstrap on exp 1)
 results.tsv             — human-readable experiment log
 visual_feedback.txt     — latest visual analysis (you write this)
 renders/                — latest rendered frames + video

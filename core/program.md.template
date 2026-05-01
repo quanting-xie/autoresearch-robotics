@@ -125,13 +125,29 @@ LOOP FOREVER:
 
 ### 1. ANALYZE (read accumulated knowledge)
 
-Before touching any code, build your understanding of where things stand:
+Before touching any code, build your understanding of where things stand. ANALYZE has two substeps:
+
+**1a. Literature scan (MANDATORY on experiment 1; on demand thereafter).**
+
+Before the first experiment of a run, search online for the most relevant recent work — you are doing real research and should know what the field has tried in the last 1–2 years. Use the `WebSearch` tool with concrete queries, then `WebFetch` to drill into the 2–4 most relevant abstracts. Examples (adapt to the env / algorithm in `prepare.py`):
+
+- `"<env name>" reinforcement learning 2024 2025`
+- `<algorithm in train.py> improvements <recent year> arxiv`
+- `sample-efficient RL goal-conditioned <year>`
+- `<observed failure mode> reinforcement learning paper`
+
+Capture findings in `literature_notes.md` (create if absent, append if it exists). For each entry record: paper title, arxiv id / URL, the core idea in one sentence, and whether the idea is *applicable here* given the constraints (fixed time budget, fixed env, no new packages — note explicitly if a paper requires a dep we can't install). Don't paste abstracts; distill.
+
+On experiments 2+, re-read `literature_notes.md` first. Only re-search if you're starting a *new* direction the existing notes don't cover, or you've stalled for ≥ 3 experiments and want fresh ideas. Don't burn web search budget every iteration.
+
+**1b. Read accumulated knowledge.**
 
 - **Read `experiment_history.json`** — your persistent memory across experiments. Pay attention to:
   - `insights[]` — confirmed patterns from past experiments
   - `failed_directions[]` — things that didn't work and why (DON'T repeat these)
   - `promising_directions[]` — untried ideas worth exploring
   - Recent experiments — what was tried, what happened, what was learned
+- **Read `literature_notes.md`** (if it exists) — your distilled view of the relevant literature
 - **Read `visual_feedback.txt`** — your visual analysis of the last run
 - **Read `results.tsv`** — quick overview of all experiments and trends
 
@@ -248,6 +264,7 @@ evaluate.py             — evaluation, rendering (read-only)
 train.py                — SAC policy, HER buffer, training loop (you modify this)
 program.md              — these instructions
 experiment_history.json — persistent structured memory across experiments
+literature_notes.md     — distilled findings from web literature scans (you write this; bootstrap on exp 1)
 results.tsv             — human-readable experiment log
 visual_feedback.txt     — latest visual analysis (you write this)
 renders/                — latest rendered frames + video

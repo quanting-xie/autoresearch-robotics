@@ -46,12 +46,12 @@ N_LAYERS = 3                # number of hidden layers
 ACTIVATION = "relu"         # activation function: "relu", "tanh", "gelu"
 
 # SAC optimization
-LR_ACTOR = 1e-3             # actor learning rate (exp6: best LR for 10s budget)
+LR_ACTOR = 1e-3             # actor learning rate
 LR_CRITIC = 1e-3            # critic learning rate
 GAMMA = 0.98                # discount factor
 TAU = 0.005                 # soft target update rate
 INIT_ALPHA = 0.05           # fixed entropy coefficient (less stochastic data collection)
-AUTO_ALPHA = False          # automatic entropy tuning OFF — eval is deterministic, train should match
+AUTO_ALPHA = False          # locked alpha — eval is deterministic, train should match
 LR_ALPHA = 3e-4             # alpha learning rate (if AUTO_ALPHA)
 
 # Replay buffer
@@ -196,12 +196,11 @@ class Critic(nn.Module):
 # ---------------------------------------------------------------------------
 
 class ReplayBuffer:
-    """Replay buffer with vectorized Hindsight Experience Replay (HER).
+    """Replay buffer with optional Hindsight Experience Replay (HER).
 
-    Stores per-slot episode_start / episode_length so HER relabeling can be
-    done with pure numpy ops instead of a Python for-loop. At our 10s budget
-    we never come close to filling capacity, so wraparound is not handled
-    (an assertion guards against it).
+    Stores full goal-conditioned transitions and applies HER relabeling on sample.
+    Uses per-transition episode_id tracking for O(1) episode lookup and correct
+    handling of circular buffer wraparound.
     """
 
     def __init__(self, capacity, obs_dim, action_dim, goal_dim):
@@ -212,6 +211,7 @@ class ReplayBuffer:
         self.ptr = 0
         self.size = 0
 
+        # Store raw components (not flattened) for HER relabeling
         self.observations = np.zeros((capacity, obs_dim), dtype=np.float32)
         self.actions = np.zeros((capacity, action_dim), dtype=np.float32)
         self.rewards = np.zeros((capacity, 1), dtype=np.float32)
@@ -221,10 +221,10 @@ class ReplayBuffer:
         self.next_achieved_goals = np.zeros((capacity, goal_dim), dtype=np.float32)
         self.desired_goals = np.zeros((capacity, goal_dim), dtype=np.float32)
 
-        # Per-slot episode metadata. ep_len == 0 means "this slot's episode
-        # hasn't terminated yet" (HER will skip those).
-        self.slot_ep_start = np.zeros(capacity, dtype=np.int32)
-        self.slot_ep_len = np.zeros(capacity, dtype=np.int32)
+        # Episode tracking for HER — per-transition episode ID for O(1) lookup
+        self.episode_ids = np.full(capacity, -1, dtype=np.int32)
+        self.episode_boundaries = {}  # episode_id -> (start_idx, length)
+        self._current_episode_id = 0
         self._current_episode_start = 0
 
     def add(self, obs, action, reward, next_obs, done, achieved_goal,
@@ -238,65 +238,112 @@ class ReplayBuffer:
         self.achieved_goals[idx] = achieved_goal
         self.next_achieved_goals[idx] = next_achieved_goal
         self.desired_goals[idx] = desired_goal
+        self.episode_ids[idx] = self._current_episode_id
 
-        self.ptr = idx + 1
-        assert self.ptr <= self.capacity, "buffer wraparound not supported at this scale"
-        self.size = self.ptr
+        # Invalidate any old episode that occupied this slot
+        # (happens after buffer wraparound)
+        old_ep_id = self.episode_ids[idx]
+        if old_ep_id != self._current_episode_id and old_ep_id in self.episode_boundaries:
+            del self.episode_boundaries[old_ep_id]
+
+        self.episode_ids[idx] = self._current_episode_id
+
+        self.ptr = (self.ptr + 1) % self.capacity
+        self.size = min(self.size + 1, self.capacity)
 
         if done:
-            ep_start = self._current_episode_start
-            ep_len = idx - ep_start + 1
-            self.slot_ep_start[ep_start:idx + 1] = ep_start
-            self.slot_ep_len[ep_start:idx + 1] = ep_len
+            # Compute episode length handling wraparound
+            if idx >= self._current_episode_start:
+                ep_len = idx - self._current_episode_start + 1
+            else:
+                # Wrapped around — this episode spans the boundary
+                ep_len = (self.capacity - self._current_episode_start) + idx + 1
+
+            if ep_len > 0:
+                self.episode_boundaries[self._current_episode_id] = (
+                    self._current_episode_start, ep_len
+                )
+            self._current_episode_id += 1
             self._current_episode_start = self.ptr
 
-    @staticmethod
-    def _compute_reward(achieved_goal, desired_goal):
+    def _compute_reward(self, achieved_goal, desired_goal):
+        """Sparse reward: -1 if not at goal, 0 if at goal (distance < 0.05)."""
         d = np.linalg.norm(achieved_goal - desired_goal, axis=-1)
         return -(d > 0.05).astype(np.float32)
 
     def sample(self, batch_size, device, obs_normalizer=None,
                use_her=USE_HER, her_k=HER_K):
+        """Sample a batch, optionally with HER relabeling.
+
+        Args:
+            batch_size: number of transitions to sample
+            device: torch device
+            obs_normalizer: RunningMeanStd instance for observation normalization
+            use_her: whether to apply HER relabeling
+            her_k: number of future goals per transition for HER
+        """
         indices = np.random.randint(0, self.size, size=batch_size)
 
+        obs = self.observations[indices].copy()
         actions = self.actions[indices]
         rewards = self.rewards[indices].copy()
+        next_obs = self.next_observations[indices].copy()
         dones = self.dones[indices].copy()
         desired_goals = self.desired_goals[indices].copy()
-        obs = self.observations[indices]
-        next_obs = self.next_observations[indices]
 
-        if use_her:
+        if use_her and self.episode_boundaries:
+            # HER: relabel a fraction of transitions with future achieved goals
             n_her = int(batch_size * her_k / (her_k + 1))
-            her_buf_idx = indices[:n_her]
-            ep_starts = self.slot_ep_start[her_buf_idx]
-            ep_lens = self.slot_ep_len[her_buf_idx]
-            pos_in_ep = her_buf_idx - ep_starts
-            remaining = ep_lens - pos_in_ep - 1
 
-            valid = remaining > 0  # episode terminated AND not the last step
-            if valid.any():
+            for i in range(n_her):
+                idx = indices[i]
+                ep_id = self.episode_ids[idx]
+
+                # Skip if episode not tracked (invalidated by wraparound)
+                if ep_id not in self.episode_boundaries:
+                    continue
+
+                ep_start, ep_len = self.episode_boundaries[ep_id]
+
+                # Compute position within episode
+                if idx >= ep_start:
+                    pos_in_ep = idx - ep_start
+                else:
+                    # Wrapped episode
+                    pos_in_ep = (self.capacity - ep_start) + idx
+
                 if HER_STRATEGY == "future":
-                    rand = np.random.random(size=n_her)
-                    rem_safe = np.where(valid, remaining, 1)
-                    future_offset = (rand * rem_safe).astype(np.int32) + 1
-                    future_idx = her_buf_idx + future_offset
+                    # Sample a future transition in the same episode
+                    remaining = ep_len - pos_in_ep - 1
+                    if remaining <= 0:
+                        continue
+                    future_offset = np.random.randint(1, remaining + 1)
+                    future_idx = (idx + future_offset) % self.capacity
                 else:  # "final"
-                    future_idx = ep_starts + ep_lens - 1
+                    future_idx = (ep_start + ep_len - 1) % self.capacity
 
-                new_goals = self.achieved_goals[future_idx]
-                next_ag = self.next_achieved_goals[her_buf_idx]
+                # Validate the future index still belongs to the same episode
+                if self.episode_ids[future_idx] != ep_id:
+                    continue
 
-                desired_goals[:n_her][valid] = new_goals[valid]
-                d = np.linalg.norm(next_ag - new_goals, axis=-1)
-                new_rewards = -(d > 0.05).astype(np.float32)
-                new_dones = (d < 0.05).astype(np.float32)
-                rewards[:n_her, 0][valid] = new_rewards[valid]
-                dones[:n_her, 0][valid] = new_dones[valid]
+                # Relabel goal with future achieved goal
+                new_goal = self.achieved_goals[future_idx]
+                desired_goals[i] = new_goal
 
+                # Recompute reward with new goal
+                next_ag = self.next_achieved_goals[idx]
+                rewards[i] = self._compute_reward(next_ag, new_goal)
+
+                # Recompute done (success = distance < 0.05)
+                dones[i] = float(
+                    np.linalg.norm(next_ag - new_goal) < 0.05
+                )
+
+        # Flatten observations: concat obs + desired_goal
         flat_obs = np.concatenate([obs, desired_goals], axis=-1)
         flat_next_obs = np.concatenate([next_obs, desired_goals], axis=-1)
 
+        # Apply observation normalization if available
         if obs_normalizer is not None:
             flat_obs = obs_normalizer.normalize(flat_obs)
             flat_next_obs = obs_normalizer.normalize(flat_next_obs)

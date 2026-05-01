@@ -50,8 +50,8 @@ LR_ACTOR = 1e-3             # actor learning rate (exp6: best LR for 10s budget)
 LR_CRITIC = 1e-3            # critic learning rate
 GAMMA = 0.98                # discount factor
 TAU = 0.005                 # soft target update rate
-INIT_ALPHA = 0.2            # initial entropy coefficient
-AUTO_ALPHA = True           # automatic entropy tuning
+INIT_ALPHA = 0.05           # fixed entropy coefficient (less stochastic data collection)
+AUTO_ALPHA = False          # automatic entropy tuning OFF — eval is deterministic, train should match
 LR_ALPHA = 3e-4             # alpha learning rate (if AUTO_ALPHA)
 
 # Replay buffer

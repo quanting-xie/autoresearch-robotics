@@ -5,3 +5,6 @@ e5f476a	0.000000	-50.0	robot wanders table but never grasps or lifts block	keep	
 ed6deec	0.000000	-50.0	gripper now reaches table height adjacent to block; mean_distance 0.220 best yet (vs 0.247 baseline)	discard	recipe + grip-to-block shaping (coef 0.1)
 3260807	0.000000	-50.0	ep0 'could grasp now' adjacent to block; never closes; ep1/ep2 wildly off-workspace	discard	recipe + 2-term shaping (grip 1.0 + goal 5.0) — distance shaping plateaus at reach
 7f7fd2c	0.000000	-49.8	FIRST mean_reward off floor (-49.8 vs -50); gripper actively engaging block; vel-bonus encourages 'keep moving' over 'place'	discard	recipe + 2-term shaping + block-displacement bonus (100*|delta| cap 10)
+df5741c	0.100000	-45.0	BREAKTHROUGH: ep1 shows gripper grasping block at goal-dot; first non-zero success	keep	recipe + 4-term shaping (grip + goal + vel + at-goal +20)
+54c03e5	0.100000	-45.0	tied at 0.10; ep1 gripper above-left of block but no clear grasp; no qualitative gain	discard	HER_K 4 -> 8
+945fe69	0.000000	-50.0	regressed to 0%; bigger net undertrained at fixed budget; critic loss 300-400 noisy	discard	HIDDEN_DIM 256 -> 512 (4x params, ~1.6M)

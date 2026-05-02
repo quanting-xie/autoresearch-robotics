@@ -28,9 +28,10 @@ from evaluate import (
     evaluate, render_episodes,
 )
 
-# Optional wandb logging. Default mode is "offline" (no login, logs land in
-# ./wandb/). Set WANDB_MODE=online (and run `wandb login` once) to sync to
-# the cloud. WANDB_MODE=disabled turns it off entirely.
+# Optional wandb logging. Default mode is "online" — assumes you've run
+# `wandb login` once on this machine (writes ~/.netrc). Override with
+# WANDB_MODE=offline to keep logs local-only, or WANDB_MODE=disabled to
+# skip wandb entirely.
 try:
     import wandb
     _WANDB_AVAILABLE = True
@@ -511,10 +512,10 @@ print(f"HER: {'enabled' if USE_HER else 'disabled'} (k={HER_K})")
 print()
 
 # ---------------------------------------------------------------------------
-# wandb init (offline by default — no login required; set WANDB_MODE=online
-# and run `wandb login` once to sync to the cloud)
+# wandb init (online by default — assumes `wandb login` was run on this host;
+# falls back gracefully if init fails). Set WANDB_MODE=offline for local-only.
 # ---------------------------------------------------------------------------
-_wandb_mode = os.environ.get("WANDB_MODE", "offline").lower()
+_wandb_mode = os.environ.get("WANDB_MODE", "online").lower()
 WANDB_ENABLED = _WANDB_AVAILABLE and _wandb_mode != "disabled"
 wandb_run = None
 if WANDB_ENABLED:

@@ -1,1 +1,7 @@
 commit	success_rate	mean_reward	vlm_summary	status	description
+e5f476a	0.000000	-50.0	robot wanders table but never grasps or lifts block	keep	baseline SAC+HER unmodified
+854e4cf	0.000000	-50.0	gripper now stays in workspace and reaches block height (ep1 mid near-grasp) but never lifts	discard	critic LayerNorm + target-Q clip to [-50, 0] (entropy kept in target)
+6de4d93	0.000000	-50.0	gripper hovers above-right of table all 3 episodes; never descends to contact block	discard	full value-side recipe: LN + Q-clip + no-entropy target + RR=2
+ed6deec	0.000000	-50.0	gripper now reaches table height adjacent to block; mean_distance 0.220 best yet (vs 0.247 baseline)	discard	recipe + grip-to-block shaping (coef 0.1)
+3260807	0.000000	-50.0	ep0 'could grasp now' adjacent to block; never closes; ep1/ep2 wildly off-workspace	discard	recipe + 2-term shaping (grip 1.0 + goal 5.0) — distance shaping plateaus at reach
+7f7fd2c	0.000000	-49.8	FIRST mean_reward off floor (-49.8 vs -50); gripper actively engaging block; vel-bonus encourages 'keep moving' over 'place'	discard	recipe + 2-term shaping + block-displacement bonus (100*|delta| cap 10)

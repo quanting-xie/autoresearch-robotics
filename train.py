@@ -66,8 +66,27 @@ HER_STRATEGY = "future"     # "future" or "final"
 # Training schedule
 STEPS_BEFORE_LEARNING = 1000    # random exploration steps before learning
 UPDATE_EVERY = 1                # gradient steps per env step
-N_UPDATES = 1                   # number of gradient updates per update cycle
+N_UPDATES = 2                   # number of gradient updates per update cycle (RR=2)
 WARMUP_STEPS = 0                # steps with random actions after learning starts
+
+# Reward shaping (training-only; eval in evaluate.py uses unmodified env reward).
+# Four dense terms, each addressing a specific bottleneck found in exps 1-6:
+#   - SHAPING_GRIP_COEF: pulls gripper toward block (reach phase).
+#   - SHAPING_GOAL_COEF: pulls block toward goal (place gradient).
+#   - SHAPING_VEL_COEF (capped at MAX_VEL_BONUS): rewards block displacement
+#     between consecutive steps. Exp 6 showed this finally caused the
+#     gripper to engage the block (mean_reward escaped the -50 floor for
+#     the first time).
+#   - AT_GOAL_BONUS: +20 when |block - goal| < 0.05. Twice MAX_VEL_BONUS so
+#     the agent strictly prefers "block at goal stationary" over "block in
+#     motion". Solves the exp 6 "agent keeps the block moving instead of
+#     placing it" failure mode.
+SHAPING_GRIP_COEF = 1.0
+SHAPING_GOAL_COEF = 5.0
+SHAPING_VEL_COEF = 100.0
+MAX_VEL_BONUS = 10.0
+AT_GOAL_BONUS = 20.0
+AT_GOAL_THRESHOLD = 0.05
 
 # ---------------------------------------------------------------------------
 # Observation normalization
@@ -164,7 +183,9 @@ class Actor(nn.Module):
 
 
 class Critic(nn.Module):
-    """Twin Q-networks: (obs, action) -> (Q1, Q2)."""
+    """Twin Q-networks: (obs, action) -> (Q1, Q2). LayerNorm after each Linear
+    (except output head) — stabilises sparse-reward value learning per
+    arXiv 2312.05787."""
 
     def __init__(self, obs_dim, action_dim, hidden_dim=HIDDEN_DIM,
                  n_layers=N_LAYERS, activation=ACTIVATION):
@@ -173,16 +194,16 @@ class Critic(nn.Module):
         input_dim = obs_dim + action_dim
 
         # Q1
-        q1_layers = [nn.Linear(input_dim, hidden_dim), act_cls()]
+        q1_layers = [nn.Linear(input_dim, hidden_dim), nn.LayerNorm(hidden_dim), act_cls()]
         for _ in range(n_layers - 1):
-            q1_layers.extend([nn.Linear(hidden_dim, hidden_dim), act_cls()])
+            q1_layers.extend([nn.Linear(hidden_dim, hidden_dim), nn.LayerNorm(hidden_dim), act_cls()])
         q1_layers.append(nn.Linear(hidden_dim, 1))
         self.q1 = nn.Sequential(*q1_layers)
 
         # Q2
-        q2_layers = [nn.Linear(input_dim, hidden_dim), act_cls()]
+        q2_layers = [nn.Linear(input_dim, hidden_dim), nn.LayerNorm(hidden_dim), act_cls()]
         for _ in range(n_layers - 1):
-            q2_layers.extend([nn.Linear(hidden_dim, hidden_dim), act_cls()])
+            q2_layers.extend([nn.Linear(hidden_dim, hidden_dim), nn.LayerNorm(hidden_dim), act_cls()])
         q2_layers.append(nn.Linear(hidden_dim, 1))
         self.q2 = nn.Sequential(*q2_layers)
 
@@ -266,10 +287,21 @@ class ReplayBuffer:
             self._current_episode_id += 1
             self._current_episode_start = self.ptr
 
-    def _compute_reward(self, achieved_goal, desired_goal):
-        """Sparse reward: -1 if not at goal, 0 if at goal (distance < 0.05)."""
-        d = np.linalg.norm(achieved_goal - desired_goal, axis=-1)
-        return -(d > 0.05).astype(np.float32)
+    def _compute_reward(self, next_observation, achieved_goal, next_achieved_goal, desired_goal):
+        """Training reward = sparse + grip-shape + goal-shape + vel-bonus + at-goal-bonus.
+        See module-level shaping constants for rationale per term."""
+        d_block_goal = np.linalg.norm(next_achieved_goal - desired_goal, axis=-1)
+        sparse = -(d_block_goal > AT_GOAL_THRESHOLD).astype(np.float32)
+        grip_pos = next_observation[..., 0:3]
+        d_grip_block = np.linalg.norm(grip_pos - next_achieved_goal, axis=-1).astype(np.float32)
+        block_delta = np.linalg.norm(next_achieved_goal - achieved_goal, axis=-1).astype(np.float32)
+        vel_bonus = np.minimum(SHAPING_VEL_COEF * block_delta, MAX_VEL_BONUS).astype(np.float32)
+        at_goal_bonus = (d_block_goal < AT_GOAL_THRESHOLD).astype(np.float32) * AT_GOAL_BONUS
+        return (sparse
+                - SHAPING_GRIP_COEF * d_grip_block
+                - SHAPING_GOAL_COEF * d_block_goal.astype(np.float32)
+                + vel_bonus
+                + at_goal_bonus)
 
     def sample(self, batch_size, device, obs_normalizer=None,
                use_her=USE_HER, her_k=HER_K):
@@ -330,9 +362,11 @@ class ReplayBuffer:
                 new_goal = self.achieved_goals[future_idx]
                 desired_goals[i] = new_goal
 
-                # Recompute reward with new goal
+                # Recompute reward with new goal (full shaping recipe)
+                ag = self.achieved_goals[idx]
                 next_ag = self.next_achieved_goals[idx]
-                rewards[i] = self._compute_reward(next_ag, new_goal)
+                next_obs_full = self.next_observations[idx]
+                rewards[i] = self._compute_reward(next_obs_full, ag, next_ag, new_goal)
 
                 # Recompute done (success = distance < 0.05)
                 dones[i] = float(
@@ -396,6 +430,9 @@ class SACAgent:
             flat = self.obs_normalizer.normalize(flat)
         return self.actor.get_action(flat, deterministic=deterministic)
 
+    # Lower bound on bootstrap value. Drop entropy term (still in actor loss).
+    Q_MIN = -200.0
+
     def update(self, batch):
         """Single SAC update step. Returns dict of losses."""
         obs, actions, rewards, next_obs, dones = batch
@@ -404,7 +441,8 @@ class SACAgent:
         with torch.no_grad():
             next_actions, next_log_probs = self.actor.sample(next_obs)
             q1_target, q2_target = self.critic_target(next_obs, next_actions)
-            q_target = torch.min(q1_target, q2_target) - self.alpha * next_log_probs
+            q_target = torch.min(q1_target, q2_target)
+            q_target = torch.clamp(q_target, min=self.Q_MIN)
             target_q = rewards + (1 - dones) * GAMMA * q_target
 
         q1, q2 = self.critic(obs, actions)
@@ -527,8 +565,23 @@ while True:
         action = agent.select_action(obs, deterministic=False)
 
     # Environment step
-    next_obs, reward, terminated, truncated, info = env.step(action)
+    block_pos_before = obs["achieved_goal"].copy()
+    next_obs, env_reward, terminated, truncated, info = env.step(action)
     done = terminated or truncated
+    # Training-only reward shaping. Eval (evaluate.py) is unmodified.
+    grip_pos = next_obs["observation"][0:3]
+    block_pos = next_obs["achieved_goal"]
+    goal_pos = next_obs["desired_goal"]
+    d_grip_block = float(np.linalg.norm(grip_pos - block_pos))
+    d_block_goal = float(np.linalg.norm(block_pos - goal_pos))
+    block_delta = float(np.linalg.norm(block_pos - block_pos_before))
+    vel_bonus = min(SHAPING_VEL_COEF * block_delta, MAX_VEL_BONUS)
+    at_goal_bonus = AT_GOAL_BONUS if d_block_goal < AT_GOAL_THRESHOLD else 0.0
+    reward = (float(env_reward)
+              - SHAPING_GRIP_COEF * d_grip_block
+              - SHAPING_GOAL_COEF * d_block_goal
+              + vel_bonus
+              + at_goal_bonus)
     episode_step += 1
     episode_reward += reward
 

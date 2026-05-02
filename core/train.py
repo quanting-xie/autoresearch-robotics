@@ -743,6 +743,7 @@ experiment_entry = {
     "id": history["total_experiments"] + 1,
     "commit": None,  # agent fills this after git commit
     "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+    "agent": os.environ.get("AGENT_ID", "unknown"),  # set by env when launching the agent (e.g. AGENT_ID=opus-4.7)
     "description": "",  # agent fills this
     "hypothesis": "",  # agent fills this
     "changes_made": [],  # agent fills this

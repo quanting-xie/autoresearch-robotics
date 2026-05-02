@@ -2,11 +2,11 @@
   "exp10": {
     "text": "seems like only the pushing motion is success, other motion like pick and place are super jerkey and not moving to the target",
     "updated_at": "2026-05-02T02:59:19+00:00",
-    "consumed_by_agent": false
+    "consumed_by_agent": true
   },
   "exp6": {
     "text": "This one is actually looks the best. For all the motions, it try to push the box to the goal",
     "updated_at": "2026-05-02T03:00:30+00:00",
-    "consumed_by_agent": false
+    "consumed_by_agent": true
   }
 }

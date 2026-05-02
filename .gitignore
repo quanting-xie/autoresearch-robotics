@@ -7,6 +7,7 @@ uv.lock
 run.log
 renders/
 renders_best/
+renders_archive/
 
 # wandb logs (offline + online both write here)
 wandb/

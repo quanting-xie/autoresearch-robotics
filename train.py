@@ -826,6 +826,18 @@ with open(history_path, "w") as f:
     json.dump(history, f, indent=2)
 print(f"Experiment history updated: {history_path}")
 
+# Archive renders/ for this experiment so the dashboard can show past videos.
+# (renders/ is overwritten every run; renders_archive/exp{N}/ is permanent.)
+exp_id_for_archive = history["total_experiments"]
+archive_dir = Path(f"./renders_archive/exp{exp_id_for_archive}")
+renders_dir = Path("./renders")
+if renders_dir.exists():
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    for f in renders_dir.iterdir():
+        if f.is_file():
+            shutil.copy2(str(f), str(archive_dir / f.name))
+    print(f"Archived renders -> {archive_dir}")
+
 # ---------------------------------------------------------------------------
 # Final summary
 # ---------------------------------------------------------------------------

@@ -1,0 +1,23 @@
+Exp 12 visual analysis (commit 39f01ce)
+
+Quantitative result: eval_success_rate 0.100000, eval_mean_reward -48.900002, eval_mean_distance 0.283670. This regressed from the existing results.tsv best of 0.200000 at commit 6b5cfd7.
+
+Observed behavior:
+- Episode 0: the gripper descends toward the block and briefly reaches near it at mid-episode, but by the end the arm has moved away toward the robot base while the block remains on the table, not at the goal.
+- Episode 1: the gripper moves to the table surface near the block and then stalls beside/above it. It does not lift, carry, or push the block meaningfully toward the red goal marker.
+- Episode 2: the block starts almost adjacent to the goal; the gripper stays close and may create a small contact/push. This appears to be the likely source of the single success, not a general pick-and-place skill.
+
+Comparison to previous best:
+- No prior renders_best existed in this checkout before the run, so train.py saved the current mediocre frames as renders_best. The useful comparison is results.tsv: exp10 reached 0.20 success with N_UPDATES=3 and AT_GOAL_BONUS=20, while this run with N_UPDATES=4 and AT_GOAL_BONUS=5 fell to 0.10 and worse mean distance.
+
+Hypothesis assessment:
+- The hypothesis that reducing AT_GOAL_BONUS from 20 to 5 would reduce jerkiness while preserving success was not confirmed. The lower bonus removed too much incentive for final placement, and the policy mainly approaches or hovers around the block instead of completing transport to the goal.
+
+Visible failure modes:
+- Reaches near the object but fails to close/grasp consistently.
+- Little or no block displacement in episodes where the block is not already near the goal.
+- Success appears dependent on easy initial goal/block geometry rather than robust manipulation.
+- The high replay ratio plus lower terminal bonus may over-optimize shaped approach behavior without enough final-goal pressure.
+
+Next suggestion:
+- Restore AT_GOAL_BONUS to 20 and revert N_UPDATES from 4 back to the proven N_UPDATES=3 baseline, then try a smoother final-placement reward instead of a lower flat bonus: add a small gaussian bump around the goal or increase goal shaping locally only when the gripper is near the block. This keeps the exp10 metric anchor while attacking the human-observed jerkiness more surgically.

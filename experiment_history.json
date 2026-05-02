@@ -1,0 +1,54 @@
+{
+  "best_commit": "6b5cfd7",
+  "best_success_rate": 0.2,
+  "total_experiments": 12,
+  "experiments": [
+    {
+      "id": 12,
+      "commit": "39f01ce",
+      "timestamp": "2026-05-01T20:54:10",
+      "agent": "codex",
+      "description": "N_UPDATES=4 with AT_GOAL_BONUS reduced from 20 to 5 after human feedback about jerky pick-and-place behavior.",
+      "hypothesis": "Reducing the at-goal bonus from 20 to 5 would preserve enough final-placement incentive while avoiding the jerky, push-only behavior the human observed in exp10; if correct, success_rate should remain near 0.20 and the frames should show smoother object transport.",
+      "changes_made": [
+        "Kept high replay ratio N_UPDATES=4 from the current branch.",
+        "Reduced AT_GOAL_BONUS to 5.0, as committed in exp12."
+      ],
+      "metrics": {
+        "success_rate": 0.1,
+        "mean_reward": -48.900001525878906,
+        "mean_distance": 0.28366995988678156,
+        "total_steps": 64051,
+        "total_episodes": 1281,
+        "total_updates": 252204,
+        "peak_vram_mb": 28.97119140625
+      },
+      "vlm_feedback_summary": "gripper reaches near block but rarely moves it; only easy near-goal case likely succeeds",
+      "vlm_failure_modes": [
+        "reaches near object but does not consistently close or grasp",
+        "little object displacement unless the initial geometry is already easy",
+        "final placement incentive appears too weak after lowering AT_GOAL_BONUS",
+        "N_UPDATES=4 trades away environment diversity without improving success"
+      ],
+      "vlm_suggestions": [
+        "restore AT_GOAL_BONUS to 20",
+        "return to the proven N_UPDATES=3 setting from exp10",
+        "if addressing jerkiness, add a smooth local final-placement reward rather than lowering the flat success bonus"
+      ],
+      "status": "discard",
+      "hypothesis_confirmed": false,
+      "lesson_learned": "The reduced at-goal bonus regressed success_rate from the existing 0.20 best to 0.10 and made behavior look like approach/hover rather than robust transport; the +20 placement incentive was load-bearing for the metric."
+    }
+  ],
+  "insights": [
+    "Existing results.tsv shows the best run is exp10 commit 6b5cfd7 with success_rate 0.20 using N_UPDATES=3.",
+    "AT_GOAL_BONUS=20 appears load-bearing for sparse eval success; reducing it to 5 lowered success_rate to 0.10."
+  ],
+  "failed_directions": [
+    "AT_GOAL_BONUS 20 -> 5 while using N_UPDATES=4: regressed success_rate to 0.10 and produced approach/hover behavior rather than reliable transport."
+  ],
+  "promising_directions": [
+    "Restore exp10 settings, then address jerkiness with a smoother local final-placement reward instead of lowering the flat at-goal bonus.",
+    "Ablate N_UPDATES=4 separately against N_UPDATES=3 only after returning the at-goal bonus to the metric-best value."
+  ]
+}

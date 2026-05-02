@@ -9,3 +9,4 @@ df5741c	0.100000	-45.0	BREAKTHROUGH: ep1 shows gripper grasping block at goal-do
 54c03e5	0.100000	-45.0	tied at 0.10; ep1 gripper above-left of block but no clear grasp; no qualitative gain	discard	HER_K 4 -> 8
 945fe69	0.000000	-50.0	regressed to 0%; bigger net undertrained at fixed budget; critic loss 300-400 noisy	discard	HIDDEN_DIM 256 -> 512 (4x params, ~1.6M)
 6b5cfd7	0.200000	-40.5	NEW BEST 2/10 successes; mean_distance 0.147 best yet; critic loss stabilized 230-260; more consistent block-approach	keep	N_UPDATES 2 -> 3 (RR=3)
+39f01ce	0.100000	-48.900002	gripper reaches near block but rarely moves it; only easy near-goal case likely succeeds	discard	N_UPDATES 4 with AT_GOAL_BONUS 5 after human feedback

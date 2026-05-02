@@ -1,0 +1,12 @@
+__pycache__/
+*.py[oc]
+.venv/
+uv.lock
+
+# Run artifacts (regenerated each iteration)
+run.log
+renders/
+renders_best/
+
+# wandb logs (offline + online both write here)
+wandb/

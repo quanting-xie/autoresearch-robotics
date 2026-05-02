@@ -53,6 +53,8 @@ Each experiment runs on a single GPU (or CPU). The training script runs for a **
 
 **Simplicity criterion**: All else being equal, simpler is better. A small improvement that adds ugly complexity is not worth it. Removing something and getting equal or better results is a great outcome.
 
+**wandb logging is human-mandated**: `train.py` calls `wandb.init/log/finish` at four places (just before the training loop, inside the per-1000-step log block, after eval, and at the final summary). **Do not remove these calls** under the simplicity criterion — the human uses the wandb run history to compare experiments across branches. Defaults to offline mode (no login, logs land in `./wandb/`). You may add additional `wandb.log({...})` calls if relevant; do not delete the existing ones.
+
 **The first run**: Your very first run should always be to establish the baseline, so you will run the training script as is.
 
 ## Output format

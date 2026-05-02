@@ -12,6 +12,7 @@ dependencies = [
     "numpy>=1.26",
     "imageio[ffmpeg]>=2.34",
     "Pillow>=10.0",
+    "wandb>=0.18",
 ]
 
 [tool.uv.sources]

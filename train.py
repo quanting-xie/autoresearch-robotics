@@ -95,7 +95,7 @@ SHAPING_GRIP_COEF = 1.0
 SHAPING_GOAL_COEF = 5.0
 SHAPING_VEL_COEF = 100.0
 MAX_VEL_BONUS = 10.0
-AT_GOAL_BONUS = 20.0
+AT_GOAL_BONUS = 5.0  # was 20.0; human said exp 10 was jerky on pick-and-place. 5 retains place-pref without dominating
 AT_GOAL_THRESHOLD = 0.05
 
 # ---------------------------------------------------------------------------

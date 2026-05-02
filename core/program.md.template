@@ -154,6 +154,7 @@ On experiments 2+, re-read `literature_notes.md` first. Only re-search if you're
 - **Read `literature_notes.md`** (if it exists) — your distilled view of the relevant literature
 - **Read `visual_feedback.txt`** — your visual analysis of the last run
 - **Read `results.tsv`** — quick overview of all experiments and trends
+- **Read `human_feedback.json`** (if it exists) — direct notes from the human watching the rendered videos. Format: `{"exp7": {"text": "...", "updated_at": "...", "consumed_by_agent": bool}, ...}`. **Treat any non-empty entry as authoritative direction** — the human sees things in the rendered videos that you (analyzing only PNG keyframes) may miss. After reading an entry, set `consumed_by_agent: true` for that key and commit `human_feedback.json` separately so the dashboard can show the human their feedback was received. If `text` contradicts your own VLM analysis or contradicts a `failed_directions` entry, the human's call wins — note the conflict in your hypothesis but follow the human.
 
 ### 2. PLAN (formulate a hypothesis)
 
@@ -269,6 +270,7 @@ train.py                — SAC policy, HER buffer, training loop (you modify th
 program.md              — these instructions
 experiment_history.json — persistent structured memory across experiments
 literature_notes.md     — distilled findings from web literature scans (you write this; bootstrap on exp 1)
+human_feedback.json     — per-experiment human notes from the dashboard (the human writes this; you READ it in ANALYZE and toggle consumed_by_agent: true)
 results.tsv             — human-readable experiment log
 visual_feedback.txt     — latest visual analysis (you write this)
 renders/                — latest rendered frames + video

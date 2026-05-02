@@ -28,6 +28,15 @@ from evaluate import (
     evaluate, render_episodes,
 )
 
+# Optional wandb logging. Default mode is "offline" (no login, logs land in
+# ./wandb/). Set WANDB_MODE=online (and run `wandb login` once) to sync to
+# the cloud. WANDB_MODE=disabled turns it off entirely.
+try:
+    import wandb
+    _WANDB_AVAILABLE = True
+except ImportError:
+    _WANDB_AVAILABLE = False
+
 # ---------------------------------------------------------------------------
 # EVERYTHING BELOW IS YOURS TO REWRITE
 # ---------------------------------------------------------------------------
@@ -502,6 +511,50 @@ print(f"HER: {'enabled' if USE_HER else 'disabled'} (k={HER_K})")
 print()
 
 # ---------------------------------------------------------------------------
+# wandb init (offline by default — no login required; set WANDB_MODE=online
+# and run `wandb login` once to sync to the cloud)
+# ---------------------------------------------------------------------------
+_wandb_mode = os.environ.get("WANDB_MODE", "offline").lower()
+WANDB_ENABLED = _WANDB_AVAILABLE and _wandb_mode != "disabled"
+wandb_run = None
+if WANDB_ENABLED:
+    try:
+        wandb_run = wandb.init(
+            project=os.environ.get("WANDB_PROJECT", "autoresearch"),
+            name=os.environ.get("WANDB_RUN_NAME"),
+            mode=_wandb_mode,
+            config={
+                "env_id": ENV_ID,
+                "time_budget": TIME_BUDGET,
+                "obs_dim": obs_dim,
+                "action_dim": action_dim,
+                "hidden_dim": HIDDEN_DIM,
+                "n_layers": N_LAYERS,
+                "activation": ACTIVATION,
+                "lr_actor": LR_ACTOR,
+                "lr_critic": LR_CRITIC,
+                "gamma": GAMMA,
+                "tau": TAU,
+                "init_alpha": INIT_ALPHA,
+                "auto_alpha": AUTO_ALPHA,
+                "use_her": USE_HER,
+                "her_k": HER_K,
+                "her_strategy": HER_STRATEGY,
+                "buffer_size": BUFFER_SIZE,
+                "batch_size": BATCH_SIZE,
+                "steps_before_learning": STEPS_BEFORE_LEARNING,
+                "update_every": UPDATE_EVERY,
+                "n_updates": N_UPDATES,
+                "num_params": num_params,
+            },
+        )
+        print(f"wandb: mode={_wandb_mode}, run={wandb_run.name}, dir={wandb_run.dir}")
+    except Exception as _e:
+        print(f"wandb.init failed ({_e}); continuing without wandb")
+        WANDB_ENABLED = False
+        wandb_run = None
+
+# ---------------------------------------------------------------------------
 # Training loop
 # ---------------------------------------------------------------------------
 
@@ -593,6 +646,19 @@ while True:
             end="", flush=True,
         )
 
+        if WANDB_ENABLED:
+            wandb.log({
+                "train/critic_loss": float(debiased_critic),
+                "train/actor_loss": float(debiased_actor),
+                "train/alpha": float(agent.alpha),
+                "train/total_episodes": total_episodes,
+                "train/buffer_size": buffer.size,
+                "train/steps_per_sec": steps_per_sec,
+                "train/elapsed_seconds": total_training_time,
+                "train/total_updates": total_updates,
+                "train/pct_budget_used": pct_done,
+            }, step=total_steps)
+
     # GC management
     if total_steps == 100:
         gc.collect()
@@ -627,6 +693,20 @@ render_result = render_episodes(policy_fn, ENV_ID, n_episodes=RENDER_EPISODES,
                                 output_dir="./renders", show_window=not args.headless)
 print(f"Video: {render_result['video_path']}")
 print(f"Key frames: {len(render_result['frame_paths'])}")
+
+if WANDB_ENABLED:
+    eval_log = {
+        "eval/success_rate": float(metrics["success_rate"]),
+        "eval/mean_reward": float(metrics["mean_reward"]),
+        "eval/mean_distance": float(metrics["mean_distance"]),
+    }
+    video_path = render_result.get("video_path")
+    if video_path and os.path.exists(video_path):
+        try:
+            eval_log["eval/video"] = wandb.Video(video_path, format="mp4")
+        except Exception as _e:
+            print(f"wandb video upload failed ({_e})")
+    wandb.log(eval_log)
 
 # ---------------------------------------------------------------------------
 # Update experiment history
@@ -693,6 +773,18 @@ with open(history_path, "w") as f:
     json.dump(history, f, indent=2)
 print(f"Experiment history updated: {history_path}")
 
+# Archive renders/ for this experiment so the dashboard can show past videos.
+# (renders/ is overwritten every run; renders_archive/exp{N}/ is permanent.)
+exp_id_for_archive = history["total_experiments"]
+archive_dir = Path(f"./renders_archive/exp{exp_id_for_archive}")
+renders_dir = Path("./renders")
+if renders_dir.exists():
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    for f in renders_dir.iterdir():
+        if f.is_file():
+            shutil.copy2(str(f), str(archive_dir / f.name))
+    print(f"Archived renders -> {archive_dir}")
+
 # ---------------------------------------------------------------------------
 # Final summary
 # ---------------------------------------------------------------------------
@@ -712,3 +804,13 @@ print(f"total_episodes:    {total_episodes}")
 print(f"total_updates:     {total_updates}")
 print(f"num_params:        {num_params:,}")
 print(f"buffer_size:       {buffer.size:,}")
+
+if WANDB_ENABLED and wandb_run is not None:
+    wandb.summary["eval/success_rate"] = float(metrics["success_rate"])
+    wandb.summary["eval/mean_reward"] = float(metrics["mean_reward"])
+    wandb.summary["eval/mean_distance"] = float(metrics["mean_distance"])
+    wandb.summary["training_seconds"] = total_training_time
+    wandb.summary["total_steps"] = total_steps
+    wandb.summary["total_updates"] = total_updates
+    wandb.summary["peak_vram_mb"] = peak_vram_mb
+    wandb.finish()

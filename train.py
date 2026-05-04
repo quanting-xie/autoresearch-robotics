@@ -277,9 +277,16 @@ class ReplayBuffer:
             self._current_episode_start = self.ptr
 
     def _compute_reward(self, achieved_goal, desired_goal):
-        """Sparse reward: -1 if not at goal, 0 if at goal (distance < 0.05)."""
+        """Dense reward for training: negative L2 distance to goal.
+
+        Eval still uses the env's sparse reward (evaluate.py, read-only), so
+        the success metric is unchanged. The training reward is shaped so that
+        even small cube movements toward the goal produce a non-zero gradient,
+        breaking the signal-starvation cycle where HER's relabeled goals
+        collapse to a static cube position when grasping is never discovered.
+        """
         d = np.linalg.norm(achieved_goal - desired_goal, axis=-1)
-        return -(d > 0.05).astype(np.float32)
+        return (-d).astype(np.float32)
 
     def sample(self, batch_size, device, obs_normalizer=None,
                use_her=USE_HER, her_k=HER_K):
@@ -590,11 +597,18 @@ while True:
     flat_obs_for_norm = flatten_obs(obs)
     obs_normalizer.update(flat_obs_for_norm)
 
+    # Dense training reward: negative distance from achieved to desired goal.
+    # Eval reward is still env-sparse (evaluate.py, read-only) so success_rate
+    # is unaffected. This is the standard ablation in Andrychowicz HER paper.
+    shaped_reward = -float(np.linalg.norm(
+        next_obs["achieved_goal"] - obs["desired_goal"]
+    ))
+
     # Store transition
     buffer.add(
         obs=obs["observation"],
         action=action,
-        reward=reward,
+        reward=shaped_reward,
         next_obs=next_obs["observation"],
         done=float(done),
         achieved_goal=obs["achieved_goal"],

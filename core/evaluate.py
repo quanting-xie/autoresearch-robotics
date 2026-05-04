@@ -71,8 +71,20 @@ def describe_rollout_with_gemini(video_path, env_id=None,
     except ImportError:
         return None
     try:
+        import time as _time
         client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
         uploaded = client.files.upload(file=str(video_path))
+        # Video uploads come back in PROCESSING state — must poll until ACTIVE
+        # before we can include them in a generate_content call.
+        deadline = _time.time() + 120
+        while getattr(uploaded.state, "name", str(uploaded.state)).endswith("PROCESSING"):
+            if _time.time() > deadline:
+                print("gemini: file processing timed out (>2 min); skipping summary")
+                try: client.files.delete(name=uploaded.name)
+                except Exception: pass
+                return None
+            _time.sleep(2)
+            uploaded = client.files.get(name=uploaded.name)
         prompt = (
             f"Watch this {env_id or 'robot manipulation'} rollout video carefully. "
             "Output 5 numbered bullets in Chinese (中文):\n"

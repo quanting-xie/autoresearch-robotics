@@ -1,7 +1,7 @@
 {
   "best_commit": "6b5cfd7",
   "best_success_rate": 0.2,
-  "total_experiments": 21,
+  "total_experiments": 22,
   "experiments": [
     {
       "id": 12,
@@ -371,6 +371,44 @@
       "status": "discard",
       "hypothesis_confirmed": false,
       "lesson_learned": "A small SAC entropy floor can keep the sparse early-stop run alive long enough to hit a 0.20 spot eval, but it did not improve final evaluation or rendered behavior; the bottleneck is not just premature entropy collapse, but converting near-contact into goal-directed object transport."
+    },
+    {
+      "id": 22,
+      "commit": "a779309",
+      "timestamp": "2026-05-04T12:08:08",
+      "agent": "gpt-5.5",
+      "description": "Added a gated transport action prior that nudges actions toward the block-to-goal direction only when the gripper is within 9 cm of the block.",
+      "hypothesis": "Recent sparse early-stop runs repeatedly reach or hover near the block but fail to move it to the goal. A small post-policy action prior, active only when the gripper is within 9 cm of the block, should convert near-contact states into goal-directed pushes by nudging XY motion from block toward goal while lightly maintaining table contact, without changing replay ratio or reward shaping.",
+      "changes_made": [
+        "Added USE_TRANSPORT_ACTION_PRIOR with PRIOR_CONTACT_RADIUS=0.09, PRIOR_PUSH_COEF=0.20, PRIOR_DOWN_COEF=0.10, and PRIOR_MAX_DELTA=0.25.",
+        "Applied the prior to training actions after random/policy action selection so replay stores the executed biased action.",
+        "Applied the same prior in spot evaluation and final evaluation/render policy functions.",
+        "Kept sparse reward recomputation, HER_K=4, N_UPDATES=1, and automatic entropy unchanged."
+      ],
+      "metrics": {
+        "success_rate": 0.0,
+        "mean_reward": -50.0,
+        "mean_distance": 0.25754982291909095,
+        "total_steps": 279267,
+        "total_episodes": 5585,
+        "total_updates": 278267,
+        "peak_vram_mb": 27.40087890625
+      },
+      "vlm_feedback_summary": "gated push prior produced intermittent 0.20 spot evals and better mean distance, but final success stayed 0.0; renders show near-contact/parking without completing block transport",
+      "vlm_failure_modes": [
+        "spot evals alternated 0.00 and 0.20 before ending with three zeros",
+        "final rendered rollouts show the gripper beside or over the block but not pushing through to the goal",
+        "block often remains just offset from the red marker rather than crossing the success threshold",
+        "the prior may improve contact geometry but is too weak or poorly timed to create stable final placement"
+      ],
+      "vlm_suggestions": [
+        "discard this exact action-prior change and restore the sparse N_UPDATES=1 baseline",
+        "if revisiting action priors, test a stronger or longer-horizon push primitive rather than a small additive nudge",
+        "consider a short hand-coded near-contact controller only for deterministic evaluation if the experiment goal allows policy post-processing, but treat it as a separate structural direction"
+      ],
+      "status": "discard",
+      "hypothesis_confirmed": false,
+      "lesson_learned": "A small gated transport action prior can produce intermittent 0.20 spot evals and improve final mean distance to 0.258, but it still failed final sparse success. The contact-to-transport bottleneck needs either a stronger persistent push mechanism or a learning signal that makes the block cross the final threshold, not just a low-gain local nudge."
     }
   ],
   "insights": [
@@ -384,7 +422,8 @@
     "Sparse N_UPDATES=1 with long-ceiling early-stop instrumentation tied the 0.20 best success rate, but visual rollouts still lacked robust transport.",
     "Fully restoring exp10 shaping, LayerNorm critic, Q_MIN clamp, and N_UPDATES=3 on top of early-stop instrumentation regressed to 0.0 success.",
     "Sparse N_UPDATES=2 also regressed to 0.0 success, suggesting the N_UPDATES=1 early-stop setup is the better current infrastructure anchor.",
-    "A MIN_ALPHA=0.02 entropy floor on the sparse N_UPDATES=1 early-stop baseline produced one 0.20 spot eval but final success still regressed to 0.0, so entropy preservation alone is insufficient."
+    "A MIN_ALPHA=0.02 entropy floor on the sparse N_UPDATES=1 early-stop baseline produced one 0.20 spot eval but final success still regressed to 0.0, so entropy preservation alone is insufficient.",
+    "The gated near-contact push prior improved final mean distance versus exp21 (0.258 vs 0.279) and produced two 0.20 spot evals, but final success stayed 0.0; low-gain action nudges are not enough for stable placement."
   ],
   "failed_directions": [
     "AT_GOAL_BONUS 20 -> 5 while using N_UPDATES=4: regressed success_rate to 0.10 and produced approach/hover behavior rather than reliable transport.",
@@ -395,13 +434,15 @@
     "Broad Gaussian local-goal bonus: regressed success to 0.0, worsened mean distance to 0.376, and caused arm retraction.",
     "Full exp10 recipe on early-stop sparse infrastructure: regressed success to 0.0 and hit no-progress early stop after spot evals 0.20, 0.00, 0.00, 0.00.",
     "Sparse N_UPDATES 1 -> 2 on early-stop infrastructure: regressed success to 0.0, produced all-zero spot evals, and raised critic loss late in the run.",
-    "MIN_ALPHA=0.02 entropy floor on sparse N_UPDATES=1 early-stop baseline: produced a mid-run 0.20 spot eval but final success was 0.0 and renders still showed approach/hover without transport."
+    "MIN_ALPHA=0.02 entropy floor on sparse N_UPDATES=1 early-stop baseline: produced a mid-run 0.20 spot eval but final success was 0.0 and renders still showed approach/hover without transport.",
+    "Low-gain gated transport action prior (9 cm contact radius, +0.20 XY push, +0.10 down): final success remained 0.0 despite intermittent 0.20 spot evals and closer mean distance."
   ],
   "promising_directions": [
     "Restore exp10 settings, then address jerkiness with a smoother local final-placement reward instead of lowering the flat at-goal bonus.",
     "Ablate N_UPDATES=4 separately against N_UPDATES=3 only after returning the at-goal bonus to the metric-best value.",
     "Preserve the exp10 transport rewards and add more selective contact-acquisition shaping rather than weakening terminal or velocity transport incentives.",
     "Use the sparse early-stop baseline with N_UPDATES=1 as the current infrastructure anchor and test isolated lightweight shaping or action-prior changes.",
-    "If using the sparse early-stop anchor, prefer transport-specific near-contact push/action priors over pure entropy or replay-ratio changes."
+    "If using the sparse early-stop anchor, prefer transport-specific near-contact push/action priors over pure entropy or replay-ratio changes.",
+    "If revisiting action priors, test a stronger persistent push primitive or controller-style post-processing rather than a one-step low-gain nudge."
   ]
 }

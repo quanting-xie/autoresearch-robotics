@@ -19,3 +19,4 @@ ae0e2f0	0.000000	-50.000000	mean distance improves to 0.255, but frames show nea
 88dc11b	0.000000	-50.000000	early 0.20 spot eval collapsed to three zeros; sampled rollouts show hovering/retraction and no block transport	discard	exp10 dense shaping + LayerNorm/Q_MIN + N_UPDATES=3 on early-stop runner
 81547b4	0.000000	-50.000000	all spot evals zero and mean distance worsened; frames show approach/retreat but no transport	discard	sparse N_UPDATES=1 -> 2 on early-stop runner
 6011c39	0.000000	-50.000000	mid-run 0.20 spot eval but final frames show hover/near-contact with no useful block transport	discard	MIN_ALPHA=0.02 entropy floor on sparse early-stop runner
+a779309	0.000000	-50.000000	intermittent 0.20 spot evals and closer mean distance, but final frames still park near block without transport	discard	gated near-contact transport action prior

@@ -237,3 +237,27 @@ Visible failure modes:
 
 Next suggestion:
 - Discard the entropy-floor change and restore the sparse N_UPDATES=1 early-stop baseline. The next isolated test should target the contact-to-transport bottleneck directly, for example with a very small near-contact action prior or push-direction shaping gated by gripper-block proximity, rather than another pure entropy or replay-ratio change.
+
+Exp 22 visual analysis (commit a779309)
+
+Quantitative result: eval_success_rate 0.000000, eval_mean_reward -50.000000, eval_mean_distance 0.257550. Training ran for 2100.0s and stopped with early_stop_reason "no-progress - 600s elapsed, last 3 spot-evals all 0". Spot eval history was [0.00, 0.20, 0.00, 0.20, 0.00, 0.00, 0.00].
+
+Observed behavior:
+- Episode 0: the gripper moves to the block area and stays near/over the block, but the block remains off target at the end.
+- Episode 1: the block starts near the red marker and the gripper approaches it, but the final state still leaves the block offset rather than placed.
+- Episode 2: the gripper reaches down near the block/goal region and appears to park or press near the object, but it does not push through enough to complete success.
+
+Comparison to previous best:
+- Compared with exp21, the final mean distance improved from 0.279210 to 0.257550 and spot evals hit 0.20 twice instead of once. Compared with the best scalar runs at 0.20 final success, this still regressed to 0.0 final success.
+
+Hypothesis assessment:
+- The hypothesis was only weakly supported and not confirmed by the final metric. The action prior appears to improve near-contact geometry and intermittent spot-eval success, but the low-gain nudge does not create stable goal-directed transport.
+
+Visible failure modes:
+- The gripper reaches and parks beside/over the block instead of pushing continuously through the target.
+- The block remains just offset from the red marker in easy near-goal cases.
+- Spot-eval success is intermittent: two 0.20 checks, then three zeros.
+- The additive prior is too weak or too locally gated to solve the final placement threshold.
+
+Next suggestion:
+- Discard this exact low-gain action prior and restore the sparse N_UPDATES=1 baseline. If revisiting priors, try a stronger persistent push primitive or controller-style post-processing as a separate structural direction; otherwise return to learned transport signals rather than one-step action nudges.

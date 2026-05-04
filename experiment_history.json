@@ -1,15 +1,15 @@
 {
   "best_commit": "ed69e5e",
   "best_success_rate": 0.1,
-  "total_experiments": 5,
+  "total_experiments": 6,
   "experiments": [
     {
       "id": 1,
       "commit": "ed69e5e",
       "timestamp": "2026-05-03T19:38:32",
       "agent": "opus-4.7",
-      "description": "Baseline SAC+HER on FetchPickAndPlace-v4, train.py unmodified.",
-      "hypothesis": "The unchanged baseline establishes a starting success rate within the 30-min single-env time budget; expected to be modest (0-30%) given that OpenAI's HER baselines used 19 MPI processes for hours.",
+      "description": "\u5728 FetchPickAndPlace-v4 \u4e0a\u8fd0\u884c\u7684 SAC+HER \u57fa\u7ebf\uff0ctrain.py \u672a\u505a\u4fee\u6539\u3002",
+      "hypothesis": "\u5728 30 \u5206\u949f\u5355\u73af\u5883\u65f6\u95f4\u9884\u7b97\u4e0b\uff0c\u672a\u4fee\u6539\u7684\u57fa\u7ebf\u53ef\u5efa\u7acb\u4e00\u4e2a\u8d77\u59cb\u6210\u529f\u7387\uff1b\u8003\u8651\u5230 OpenAI \u7684 HER \u57fa\u7ebf\u4f7f\u7528\u4e86 19 \u4e2a MPI \u8fdb\u7a0b\u5e76\u8bad\u7ec3\u6570\u5c0f\u65f6\uff0c\u9884\u8ba1\u6210\u529f\u7387\u8f83\u4e3a\u6709\u9650\uff080-30%\uff09\u3002",
       "changes_made": [],
       "metrics": {
         "success_rate": 0.1,
@@ -20,34 +20,34 @@
         "total_updates": 278079,
         "peak_vram_mb": 27.40087890625
       },
-      "vlm_feedback_summary": "Reach is learned (gripper consistently moves to cube vicinity) but grasping and lifting are NOT \u2014 cube never moves, so HER relabeling has no manipulation signal. Most successes come from rare goals near the cube's start.",
+      "vlm_feedback_summary": "reach \u884c\u4e3a\u5df2\u5b66\u4f1a\uff08\u5939\u722a\u80fd\u7a33\u5b9a\u79fb\u52a8\u5230\u65b9\u5757\u9644\u8fd1\uff09\uff0c\u4f46\u6293\u53d6\u4e0e\u62ac\u5347\u5747\u672a\u5b66\u4f1a\u2014\u2014\u65b9\u5757\u4ece\u672a\u88ab\u79fb\u52a8\u8fc7\uff0c\u56e0\u6b64 HER \u91cd\u6807\u6ce8\u5f97\u4e0d\u5230\u4efb\u4f55\u64cd\u63a7\u4fe1\u53f7\u3002\u5c11\u6570\u6210\u529f\u6848\u4f8b\u90fd\u6765\u81ea\u76ee\u6807\u6070\u597d\u51fa\u73b0\u5728\u65b9\u5757\u521d\u59cb\u4f4d\u7f6e\u9644\u8fd1\u7684\u60c5\u5f62\u3002",
       "vlm_failure_modes": [
-        "no_grasping: gripper hovers/descends onto cube but never closes fingers",
-        "no_lifting: arm never raises after touching cube, so mid-air goals are unreachable",
-        "alpha_collapses_too_fast: auto-alpha drops from 1.0 to ~0.12 in first 8K steps, killing exploration before grasping is discovered",
-        "her_signal_starvation: cube never moves -> all relabeled future goals collapse to cube start position -> HER teaches reach, not manipulate"
+        "no_grasping\uff1a\u5939\u722a\u60ac\u505c\u6216\u4e0b\u964d\u5230\u65b9\u5757\u4e0a\u65b9\uff0c\u4f46\u4ece\u4e0d\u95ed\u5408\u624b\u6307",
+        "no_lifting\uff1a\u624b\u81c2\u89e6\u78b0\u65b9\u5757\u540e\u4ece\u4e0d\u62ac\u8d77\uff0c\u56e0\u6b64\u7a7a\u4e2d\u76ee\u6807\u65e0\u6cd5\u5230\u8fbe",
+        "alpha_collapses_too_fast\uff1aauto-alpha \u5728\u524d 8K \u6b65\u5185\u4ece 1.0 \u8dcc\u81f3\u7ea6 0.12\uff0c\u5728\u6293\u53d6\u884c\u4e3a\u88ab\u53d1\u73b0\u4e4b\u524d\u5c31\u627c\u6740\u4e86\u63a2\u7d22",
+        "her_signal_starvation\uff1a\u65b9\u5757\u4ece\u4e0d\u79fb\u52a8 -> \u6240\u6709\u91cd\u6807\u6ce8\u7684 future goal \u90fd\u574d\u7f29\u5230\u65b9\u5757\u8d77\u59cb\u4f4d\u7f6e -> HER \u53ea\u6559\u4f1a\u4e86 reach\uff0c\u800c\u975e\u64cd\u63a7"
       ],
       "vlm_suggestions": [
-        "Add LayerNorm in actor + critic hidden layers (cheap, lit-supported)",
-        "Higher UTD ratio (e.g., 4 gradient updates per env step)",
-        "Slower alpha collapse: target_entropy = -action_dim/2, or fixed alpha=0.2",
-        "Bias exploration noise toward the gripper action dim during warmup",
-        "MHER(lambda) n-step relabeling \u2014 bigger lift; defer until cheaper levers exhausted"
+        "\u5728 actor \u4e0e critic \u9690\u85cf\u5c42\u4e2d\u52a0\u5165 LayerNorm\uff08\u4ee3\u4ef7\u4f4e\uff0c\u6587\u732e\u652f\u6301\uff09",
+        "\u63d0\u9ad8 UTD \u6bd4\u7387\uff08\u4f8b\u5982\u6bcf\u4e2a\u73af\u5883\u6b65\u8fdb\u884c 4 \u6b21\u68af\u5ea6\u66f4\u65b0\uff09",
+        "\u51cf\u7f13 alpha \u8870\u51cf\uff1atarget_entropy = -action_dim/2\uff0c\u6216\u4f7f\u7528\u56fa\u5b9a alpha=0.2",
+        "\u5728 warmup \u9636\u6bb5\u5c06\u63a2\u7d22\u566a\u58f0\u504f\u5411\u5939\u722a\u52a8\u4f5c\u7ef4\u5ea6",
+        "\u4f7f\u7528 MHER(lambda) n-step \u91cd\u6807\u6ce8\u2014\u2014\u63d0\u5347\u5e45\u5ea6\u66f4\u5927\uff1b\u5148\u7528\u5c3d\u66f4\u5ec9\u4ef7\u7684\u624b\u6bb5\u540e\u518d\u8003\u8651"
       ],
       "status": "keep",
       "hypothesis_confirmed": true,
-      "lesson_learned": "Baseline lands at 10% success. The dominant failure is exploration / grasping discovery, not optimization quality: HER cannot help with the manipulation phase if the cube never moves in rollouts. Future experiments should attack either (a) exploration around the gripper dimension or (b) extracting more signal per data point (UTD, normalization), since data quantity is fixed."
+      "lesson_learned": "\u57fa\u7ebf\u843d\u70b9\u4e3a 10% \u6210\u529f\u7387\u3002\u4e3b\u5bfc\u5931\u8d25\u539f\u56e0\u662f\u63a2\u7d22 / \u6293\u53d6\u884c\u4e3a\u7684\u53d1\u73b0\uff0c\u800c\u975e\u4f18\u5316\u8d28\u91cf\uff1a\u5982\u679c\u65b9\u5757\u5728 rollout \u4e2d\u4ece\u672a\u79fb\u52a8\uff0cHER \u5c31\u65e0\u6cd5\u5bf9\u64cd\u63a7\u9636\u6bb5\u63d0\u4f9b\u4efb\u4f55\u5e2e\u52a9\u3002\u540e\u7eed\u5b9e\u9a8c\u5e94\u653b\u51fb\u4ee5\u4e0b\u4e24\u4e2a\u65b9\u5411\u4e4b\u4e00\uff1a(a) \u56f4\u7ed5\u5939\u722a\u7ef4\u5ea6\u7684\u63a2\u7d22\uff0c\u6216 (b) \u4ece\u5355\u6761\u6570\u636e\u4e2d\u69a8\u53d6\u66f4\u591a\u4fe1\u53f7\uff08UTD\u3001\u5f52\u4e00\u5316\uff09\uff0c\u56e0\u4e3a\u6570\u636e\u603b\u91cf\u662f\u56fa\u5b9a\u7684\u3002"
     },
     {
       "id": 2,
       "commit": "bc67ee6",
       "timestamp": "2026-05-03T20:11:57",
       "agent": "opus-4.7",
-      "description": "Add nn.LayerNorm after each hidden Linear in Actor.trunk and Critic.q1/q2 (before activation). Output heads unchanged.",
-      "hypothesis": "LayerNorm in actor + critic stabilizes the critic under SAC's high update count (Bjorck et al. 2021), letting weak grasping signal propagate without being washed out by critic instability. Predicted success_rate to move from 0.10 to 0.15-0.30.",
+      "description": "\u5728 Actor.trunk \u4e0e Critic.q1/q2 \u7684\u6bcf\u4e2a\u9690\u85cf Linear \u5c42\u4e4b\u540e\uff08\u6fc0\u6d3b\u51fd\u6570\u4e4b\u524d\uff09\u52a0\u5165 nn.LayerNorm\u3002\u8f93\u51fa\u5934\u4fdd\u6301\u4e0d\u53d8\u3002",
+      "hypothesis": "\u5728 actor + critic \u4e2d\u52a0\u5165 LayerNorm \u53ef\u5728 SAC \u9ad8\u66f4\u65b0\u6b21\u6570\u4e0b\u7a33\u5b9a critic\uff08Bjorck et al. 2021\uff09\uff0c\u4f7f\u5fae\u5f31\u7684\u6293\u53d6\u4fe1\u53f7\u5728\u4e0d\u88ab critic \u4e0d\u7a33\u5b9a\u6027\u6df9\u6ca1\u7684\u60c5\u51b5\u4e0b\u4f20\u64ad\u3002\u9884\u8ba1 success_rate \u4ece 0.10 \u63d0\u5347\u81f3 0.15-0.30\u3002",
       "changes_made": [
-        "Actor.trunk: insert nn.LayerNorm(hidden_dim) between each Linear and activation",
-        "Critic.q1 and Critic.q2: insert nn.LayerNorm(hidden_dim) between each Linear and activation"
+        "Actor.trunk\uff1a\u5728\u6bcf\u4e2a Linear \u4e0e\u6fc0\u6d3b\u51fd\u6570\u4e4b\u95f4\u63d2\u5165 nn.LayerNorm(hidden_dim)",
+        "Critic.q1 \u4e0e Critic.q2\uff1a\u5728\u6bcf\u4e2a Linear \u4e0e\u6fc0\u6d3b\u51fd\u6570\u4e4b\u95f4\u63d2\u5165 nn.LayerNorm(hidden_dim)"
       ],
       "metrics": {
         "success_rate": 0.0,
@@ -58,32 +58,32 @@
         "total_updates": 206496,
         "peak_vram_mb": 29.75048828125
       },
-      "vlm_feedback_summary": "Hypothesis NOT confirmed: success rate regressed 0.10 -> 0.00. Reach itself degraded (gripper hovers above/beside cube, sometimes retreats away). Alpha collapsed even harder under LN (1.0 -> 0.002 vs baseline 0.12), critic_loss settled higher (~1.2 vs ~0.15), throughput dropped 32%.",
+      "vlm_feedback_summary": "\u5047\u8bbe\u672a\u88ab\u8bc1\u5b9e\uff1a\u6210\u529f\u7387\u4ece 0.10 \u5012\u9000\u81f3 0.00\u3002reach \u884c\u4e3a\u672c\u8eab\u4e5f\u9000\u5316\uff08\u5939\u722a\u60ac\u505c\u5728\u65b9\u5757\u4e0a\u65b9/\u65c1\u8fb9\uff0c\u6709\u65f6\u751a\u81f3\u540e\u64a4\uff09\u3002LN \u4e0b alpha \u574d\u7f29\u5f97\u66f4\u5267\u70c8\uff081.0 -> 0.002\uff0c\u57fa\u7ebf\u4e3a 0.12\uff09\uff0ccritic_loss \u7a33\u6001\u66f4\u9ad8\uff08\u7ea6 1.2\uff0c\u57fa\u7ebf\u7ea6 0.15\uff09\uff0c\u541e\u5410\u91cf\u4e0b\u964d 32%\u3002",
       "vlm_failure_modes": [
-        "alpha_super_collapse: LN appears to let the squashed-Gaussian achieve target entropy cheaply, so auto-alpha drives alpha to ~0 -> zero exploration bonus",
-        "reach_regression: gripper no longer reliably reaches cube vicinity (worse than baseline)",
-        "critic_loss_inflation: LN'd critic settles at ~1.2 loss vs baseline ~0.15, suggesting LN shifted the loss landscape unfavorably for sparse-reward Q targets",
-        "throughput_hit: 170 -> 115 steps/sec (-32%) under fixed time budget reduces total data by 26%"
+        "alpha_super_collapse\uff1aLN \u4f3c\u4e4e\u8ba9 squashed-Gaussian \u80fd\u4ee5\u4f4e\u4ee3\u4ef7\u8fbe\u5230\u76ee\u6807\u71b5\uff0c\u56e0\u6b64 auto-alpha \u5c06 alpha \u63a8\u81f3\u63a5\u8fd1 0 -> \u63a2\u7d22\u5956\u52b1\u4e3a\u96f6",
+        "reach_regression\uff1a\u5939\u722a\u4e0d\u518d\u53ef\u9760\u5730\u5230\u8fbe\u65b9\u5757\u9644\u8fd1\uff08\u6bd4\u57fa\u7ebf\u66f4\u5dee\uff09",
+        "critic_loss_inflation\uff1a\u52a0\u5165 LN \u7684 critic \u7a33\u6001\u635f\u5931\u7ea6\u4e3a 1.2\uff0c\u800c\u57fa\u7ebf\u7ea6\u4e3a 0.15\uff0c\u8bf4\u660e LN \u5728\u7a00\u758f\u5956\u52b1\u7684 Q \u76ee\u6807\u4e0b\u4f7f\u635f\u5931\u66f2\u9762\u53d8\u5f97\u4e0d\u5229",
+        "throughput_hit\uff1a\u541e\u5410\u91cf\u4ece 170 \u964d\u81f3 115 \u6b65/\u79d2\uff08-32%\uff09\uff0c\u5728\u56fa\u5b9a\u65f6\u95f4\u9884\u7b97\u4e0b\u4f7f\u603b\u6570\u636e\u91cf\u51cf\u5c11 26%"
       ],
       "vlm_suggestions": [
-        "Attack alpha collapse directly (next): target_entropy = -action_dim/2 = -2 instead of -4",
-        "If still bad: fixed alpha = 0.2 (no auto tuning)",
-        "Then: gripper-biased exploration noise during warmup",
-        "Avoid LN in actor when AUTO_ALPHA=True; possibly safe in critic only \u2014 but defer this combo until exploration is fixed"
+        "\u4e0b\u4e00\u6b65\u76f4\u63a5\u653b\u51fb alpha \u574d\u7f29\uff1atarget_entropy = -action_dim/2 = -2\uff0c\u800c\u975e -4",
+        "\u82e5\u4ecd\u65e0\u6548\uff1a\u4f7f\u7528\u56fa\u5b9a alpha = 0.2\uff08\u5173\u95ed auto tuning\uff09",
+        "\u518d\u4e4b\u540e\uff1a\u5728 warmup \u9636\u6bb5\u4f7f\u7528\u504f\u5411\u5939\u722a\u7684\u63a2\u7d22\u566a\u58f0",
+        "\u5f53 AUTO_ALPHA=True \u65f6\u907f\u514d\u5728 actor \u4e2d\u4f7f\u7528 LN\uff1b\u4ec5\u5728 critic \u4e2d\u4f7f\u7528\u53ef\u80fd\u5b89\u5168\u2014\u2014\u4f46\u5728\u63a2\u7d22\u95ee\u9898\u89e3\u51b3\u524d\u5148\u6401\u7f6e\u8be5\u7ec4\u5408"
       ],
       "status": "discard",
       "hypothesis_confirmed": false,
-      "lesson_learned": "LayerNorm + AUTO_ALPHA is a hostile combination on this task: LN normalizes pre-activations, which lets the squashed-Gaussian policy reach the auto-alpha target entropy with very low alpha. Exploration vanishes faster than baseline, and the LN'd critic actually fits worse. Throughput penalty (32% slower) compounds the problem under a fixed wall-clock budget. The exp 1 finding stands: exploration / grasping discovery is the dominant bottleneck, optimization-stability tweaks alone make it worse."
+      "lesson_learned": "LayerNorm + AUTO_ALPHA \u5728\u8be5\u4efb\u52a1\u4e0a\u662f\u4e00\u79cd\u76f8\u4e92\u654c\u5bf9\u7684\u7ec4\u5408\uff1aLN \u5bf9\u9884\u6fc0\u6d3b\u503c\u8fdb\u884c\u5f52\u4e00\u5316\uff0c\u4f7f squashed-Gaussian \u7b56\u7565\u80fd\u4ee5\u975e\u5e38\u4f4e\u7684 alpha \u8fbe\u5230 auto-alpha \u7684\u76ee\u6807\u71b5\u3002\u63a2\u7d22\u6d88\u5931\u5f97\u6bd4\u57fa\u7ebf\u66f4\u5feb\uff0c\u4e14\u52a0\u5165 LN \u7684 critic \u5b9e\u9645\u4e0a\u62df\u5408\u5f97\u66f4\u5dee\u300232% \u7684\u541e\u5410\u91cf\u635f\u5931\u5728\u56fa\u5b9a wall-clock \u9884\u7b97\u4e0b\u8fdb\u4e00\u6b65\u52a0\u5267\u95ee\u9898\u3002\u5b9e\u9a8c 1 \u7684\u7ed3\u8bba\u4f9d\u7136\u6210\u7acb\uff1a\u63a2\u7d22 / \u6293\u53d6\u884c\u4e3a\u7684\u53d1\u73b0\u624d\u662f\u4e3b\u5bfc\u74f6\u9888\uff0c\u5355\u7eaf\u8fdb\u884c\u4f18\u5316\u7a33\u5b9a\u6027\u65b9\u9762\u7684\u5fae\u8c03\u53cd\u800c\u4f1a\u4f7f\u60c5\u51b5\u66f4\u7cdf\u3002"
     },
     {
       "id": 3,
       "commit": "a2266b6",
       "timestamp": "2026-05-03T20:45:05",
       "agent": "opus-4.7",
-      "description": "Halve magnitude of target_entropy: SACAgent.target_entropy = -action_dim/2 (was -action_dim).",
-      "hypothesis": "By raising target_entropy magnitude (sic \u2014 see lesson_learned: I had the sign convention BACKWARDS), keep auto-alpha from collapsing so exploration persists past 8K steps. Predicted success_rate 0.10 -> 0.15-0.40 with alpha plateauing >= 0.05.",
+      "description": "\u5c06 target_entropy \u7684\u5e45\u503c\u51cf\u534a\uff1aSACAgent.target_entropy = -action_dim/2\uff08\u539f\u4e3a -action_dim\uff09\u3002",
+      "hypothesis": "\u901a\u8fc7\u63d0\u9ad8 target_entropy \u7684\u5e45\u503c\uff08\u539f\u6587\u5982\u6b64\u2014\u2014\u89c1 lesson_learned\uff1a\u4f5c\u8005\u628a\u7b26\u53f7\u7ea6\u5b9a\u5f04\u53cd\u4e86\uff09\uff0c\u9632\u6b62 auto-alpha \u574d\u7f29\uff0c\u4f7f\u63a2\u7d22\u80fd\u5ef6\u7eed\u5230 8K \u6b65\u4e4b\u540e\u3002\u9884\u8ba1 success_rate \u4ece 0.10 \u63d0\u5347\u81f3 0.15-0.40\uff0c\u4e14 alpha \u7a33\u6001 >= 0.05\u3002",
       "changes_made": [
-        "SACAgent.__init__: self.target_entropy = -action_dim/2 (was -action_dim)"
+        "SACAgent.__init__\uff1aself.target_entropy = -action_dim/2\uff08\u539f\u4e3a -action_dim\uff09"
       ],
       "metrics": {
         "success_rate": 0.0,
@@ -94,33 +94,33 @@
         "total_updates": 262232,
         "peak_vram_mb": 27.40087890625
       },
-      "vlm_feedback_summary": "Hypothesis NOT confirmed and rooted in a sign-convention mistake. Alpha collapsed FURTHER than baseline (0.009 vs 0.12), critic_loss diverged to ~50, gripper sometimes retreats from cube instead of reaching it. Mean_distance is ~baseline (0.209 vs 0.214).",
+      "vlm_feedback_summary": "\u5047\u8bbe\u672a\u88ab\u8bc1\u5b9e\uff0c\u4e14\u6839\u6e90\u5728\u4e8e\u7b26\u53f7\u7ea6\u5b9a\u9519\u8bef\u3002alpha \u6bd4\u57fa\u7ebf\u574d\u7f29\u5f97\u66f4\u5389\u5bb3\uff080.009 vs 0.12\uff09\uff0ccritic_loss \u53d1\u6563\u81f3\u7ea6 50\uff0c\u5939\u722a\u5728\u67d0\u4e9b\u60c5\u51b5\u4e0b\u8fd8\u4f1a\u4ece\u65b9\u5757\u65c1\u540e\u64a4\u3002Mean_distance \u4e0e\u57fa\u7ebf\u76f8\u5f53\uff080.209 vs 0.214\uff09\u3002",
       "vlm_failure_modes": [
-        "alpha_super_collapse: alpha 1.0 -> 0.009 (vs baseline 0.12) because I LOWERED H_target instead of raising it",
-        "critic_divergence: critic_loss explodes to ~50 by end (vs baseline ~0.15) \u2014 Q-values diverge with no entropy regularization to constrain them",
-        "policy_retreat: in some eval episodes the gripper retreats upward away from cube \u2014 reach itself is mildly destabilized",
-        "sign_convention_error: code uses target_entropy = -H_target. -action_dim/2 means H_target=2 (lower), not 8 (higher)."
+        "alpha_super_collapse\uff1aalpha \u4ece 1.0 -> 0.009\uff08\u57fa\u7ebf\u4e3a 0.12\uff09\uff0c\u56e0\u4e3a\u6211\u628a H_target \u8c03\u4f4e\u4e86\uff0c\u800c\u975e\u8c03\u9ad8",
+        "critic_divergence\uff1a\u8bad\u7ec3\u672b\u671f critic_loss \u53d1\u6563\u81f3\u7ea6 50\uff08\u57fa\u7ebf\u7ea6 0.15\uff09\u2014\u2014\u5728\u7f3a\u5c11\u71b5\u6b63\u5219\u7ea6\u675f\u7684\u60c5\u51b5\u4e0b Q \u503c\u53d1\u6563",
+        "policy_retreat\uff1a\u5728\u90e8\u5206\u8bc4\u4f30 episode \u4e2d\u5939\u722a\u5411\u4e0a\u540e\u64a4\u79bb\u5f00\u65b9\u5757\u2014\u2014reach \u884c\u4e3a\u672c\u8eab\u4e5f\u8f7b\u5fae\u5931\u7a33",
+        "sign_convention_error\uff1a\u4ee3\u7801\u4e2d target_entropy = -H_target\u3002-action_dim/2 \u610f\u5473\u7740 H_target=2\uff08\u66f4\u4f4e\uff09\uff0c\u800c\u975e 8\uff08\u66f4\u9ad8\uff09"
       ],
       "vlm_suggestions": [
-        "If revisiting this lever: target_entropy = -action_dim*2 = -8 to RAISE H_target",
-        "But the more impactful next move is dense reward for training (eval stays sparse)",
-        "Dense training reward attacks the actual bottleneck: even tiny accidental cube nudges produce useful reward gradient",
-        "If dense reward works, then ablate alpha settings on top"
+        "\u82e5\u518d\u6b21\u5c1d\u8bd5\u8be5\u624b\u6bb5\uff1a\u4f7f\u7528 target_entropy = -action_dim*2 = -8 \u6765\u771f\u6b63\u63d0\u9ad8 H_target",
+        "\u4f46\u66f4\u5177\u5f71\u54cd\u529b\u7684\u4e0b\u4e00\u6b65\u662f\u5728\u8bad\u7ec3\u9636\u6bb5\u4f7f\u7528 dense reward\uff08\u8bc4\u4f30\u4ecd\u4fdd\u6301\u7a00\u758f\uff09",
+        "\u8bad\u7ec3\u9636\u6bb5\u7684 dense reward \u76f4\u63a5\u6253\u51fb\u771f\u6b63\u7684\u74f6\u9888\uff1a\u54ea\u6015\u662f\u5076\u7136\u8f7b\u5fae\u63a8\u52a8\u65b9\u5757\u4e5f\u80fd\u4ea7\u751f\u6709\u7528\u7684\u5956\u52b1\u68af\u5ea6",
+        "\u82e5 dense reward \u594f\u6548\uff0c\u518d\u5728\u5176\u4e0a\u6d88\u878d alpha \u8bbe\u7f6e"
       ],
       "status": "discard",
       "hypothesis_confirmed": false,
-      "lesson_learned": "Two lessons. (1) SIGN CONVENTION: in this codebase, `target_entropy` field is the NEGATIVE of the entropy target H_target (used in alpha update as log_alpha * (log_prob + target_entropy)). To raise exploration, make it MORE negative. (2) MORE IMPORTANT: even a corrected exploration tweak only delays alpha collapse. Random 4D action exploration almost never produces a coordinated grasp+lift event in 30 min, so HER's achieved_goal trajectory is essentially constant and the manipulation signal never emerges. The next experiment must produce signal even without successful grasping \u2014 dense reward for training is the cleanest way to do that."
+      "lesson_learned": "\u4e24\u70b9\u6559\u8bad\u3002(1) \u7b26\u53f7\u7ea6\u5b9a\uff1a\u5728\u8be5\u4ee3\u7801\u5e93\u4e2d\uff0c`target_entropy` \u5b57\u6bb5\u662f\u71b5\u76ee\u6807 H_target \u7684\u8d1f\u503c\uff08\u5728 alpha \u66f4\u65b0\u4e2d\u4ee5 log_alpha * (log_prob + target_entropy) \u5f62\u5f0f\u4f7f\u7528\uff09\u3002\u8981\u63d0\u9ad8\u63a2\u7d22\uff0c\u5e94\u4f7f\u5176\u66f4\u8d1f\u3002(2) \u66f4\u91cd\u8981\u7684\u4e00\u70b9\uff1a\u5373\u4fbf\u662f\u4fee\u6b63\u540e\u7684\u63a2\u7d22\u8c03\u8282\u4e5f\u53ea\u80fd\u5ef6\u7f13 alpha \u574d\u7f29\u3002\u5728 4D \u52a8\u4f5c\u7a7a\u95f4\u5185\u7684\u968f\u673a\u63a2\u7d22\u51e0\u4e4e\u4e0d\u53ef\u80fd\u5728 30 \u5206\u949f\u5185\u4ea7\u751f\u534f\u540c\u7684\u6293\u53d6+\u62ac\u5347\u4e8b\u4ef6\uff0c\u56e0\u6b64 HER \u7684 achieved_goal \u8f68\u8ff9\u57fa\u672c\u4fdd\u6301\u4e0d\u53d8\uff0c\u64cd\u63a7\u4fe1\u53f7\u59cb\u7ec8\u65e0\u6cd5\u6d6e\u73b0\u3002\u4e0b\u4e00\u4e2a\u5b9e\u9a8c\u5fc5\u987b\u505a\u5230\u5373\u4f7f\u6ca1\u6709\u6210\u529f\u6293\u53d6\u4e5f\u80fd\u4ea7\u751f\u4fe1\u53f7\u2014\u2014\u5728\u8bad\u7ec3\u9636\u6bb5\u4f7f\u7528 dense reward \u662f\u6700\u5e72\u51c0\u7684\u65b9\u5f0f\u3002"
     },
     {
       "id": 4,
       "commit": "e81c811",
       "timestamp": "2026-05-03T21:20:26",
       "agent": "opus-4.7",
-      "description": "Dense training reward only (eval sparse): training reward = -||next_achieved_goal - desired_goal||; ReplayBuffer._compute_reward switched to same dense form.",
-      "hypothesis": "HER fails because cube doesn't move and all relabeled goals collapse to cube-start. Dense reward gives signal even from tiny accidental cube nudges. Predicted success_rate 0.10 -> 0.20-0.60.",
+      "description": "\u4ec5\u5728\u8bad\u7ec3\u9636\u6bb5\u4f7f\u7528 dense reward\uff08\u8bc4\u4f30\u4ecd\u4fdd\u6301\u7a00\u758f\uff09\uff1a\u8bad\u7ec3\u5956\u52b1 = -||next_achieved_goal - desired_goal||\uff1bReplayBuffer._compute_reward \u4e5f\u5207\u6362\u4e3a\u76f8\u540c\u7684 dense \u5f62\u5f0f\u3002",
+      "hypothesis": "HER \u5931\u8d25\u7684\u539f\u56e0\u5728\u4e8e\u65b9\u5757\u4e0d\u52a8\uff0c\u6240\u6709\u91cd\u6807\u6ce8\u7684\u76ee\u6807\u90fd\u574d\u7f29\u5230\u65b9\u5757\u8d77\u59cb\u4f4d\u7f6e\u3002Dense reward \u5373\u4fbf\u5bf9\u65b9\u5757\u7684\u5fae\u5c0f\u5076\u7136\u63a8\u52a8\u4e5f\u80fd\u7ed9\u51fa\u4fe1\u53f7\u3002\u9884\u8ba1 success_rate \u4ece 0.10 \u63d0\u5347\u81f3 0.20-0.60\u3002",
       "changes_made": [
-        "Training loop: shaped_reward = -||next_obs.achieved_goal - obs.desired_goal||, used in buffer.add",
-        "ReplayBuffer._compute_reward: returns -d (negative L2) instead of -(d > 0.05)"
+        "\u8bad\u7ec3\u5faa\u73af\uff1ashaped_reward = -||next_obs.achieved_goal - obs.desired_goal||\uff0c\u5728 buffer.add \u4e2d\u4f7f\u7528",
+        "ReplayBuffer._compute_reward\uff1a\u8fd4\u56de -d\uff08\u8d1f L2 \u8ddd\u79bb\uff09\uff0c\u800c\u975e -(d > 0.05)"
       ],
       "metrics": {
         "success_rate": 0.0,
@@ -131,32 +131,32 @@
         "total_updates": 274727,
         "peak_vram_mb": 27.40087890625
       },
-      "vlm_feedback_summary": "Hypothesis NOT confirmed: success rate stays at 0. Visual behaviour identical to baseline (gripper reaches cube, no manipulation). Critic loss is LOW (~0.08 \u2014 fits dense value well) but alpha collapsed to 0.000 because the bigger Q signal made the entropy bonus negligible by comparison; deterministic policy + flat-per-episode reward (cube doesn't move) => no exploration of manipulation.",
+      "vlm_feedback_summary": "\u5047\u8bbe\u672a\u88ab\u8bc1\u5b9e\uff1a\u6210\u529f\u7387\u4ecd\u7136\u4e3a 0\u3002\u89c6\u89c9\u884c\u4e3a\u4e0e\u57fa\u7ebf\u4e00\u81f4\uff08\u5939\u722a\u5230\u8fbe\u65b9\u5757\uff0c\u65e0\u64cd\u63a7\uff09\u3002Critic loss \u8f83\u4f4e\uff08\u7ea6 0.08\u2014\u2014dense value \u62df\u5408\u826f\u597d\uff09\uff0c\u4f46 alpha \u574d\u7f29\u81f3 0.000\uff0c\u56e0\u4e3a\u66f4\u5927\u7684 Q \u4fe1\u53f7\u4f7f\u71b5\u5956\u52b1\u76f8\u5bf9\u53d8\u5f97\u53ef\u5ffd\u7565\u4e0d\u8ba1\uff1b\u786e\u5b9a\u6027\u7b56\u7565 + \u6bcf\u4e2a episode \u5185\u5e73\u5766\u7684\u5956\u52b1\uff08\u65b9\u5757\u4e0d\u52a8\uff09=> \u4e0d\u4f1a\u63a2\u7d22\u64cd\u63a7\u884c\u4e3a\u3002",
       "vlm_failure_modes": [
-        "alpha_collapse_to_zero: dense reward amplifies Q magnitude so auto-alpha drives alpha exactly to 0",
-        "no_random_bumps: with alpha=0 and deterministic policy, gripper never randomly bumps cube, so dense reward gradient is flat per episode (reward ~ -||cube_start - goal||, constant)",
-        "task_collapse_to_reach: policy converges to 'minimize ||grip - cube||' since that's the only thing it can affect under near-deterministic actions"
+        "alpha_collapse_to_zero\uff1adense reward \u653e\u5927\u4e86 Q \u7684\u5e45\u503c\uff0c\u56e0\u6b64 auto-alpha \u5c06 alpha \u7cbe\u786e\u9a71\u81f3 0",
+        "no_random_bumps\uff1a\u5728 alpha=0 \u4e0e\u786e\u5b9a\u6027\u7b56\u7565\u4e0b\uff0c\u5939\u722a\u4ece\u4e0d\u4f1a\u968f\u673a\u78b0\u649e\u65b9\u5757\uff0c\u56e0\u6b64 dense reward \u5728\u6bcf\u4e2a episode \u5185\u7684\u68af\u5ea6\u662f\u5e73\u7684\uff08reward ~ -||cube_start - goal||\uff0c\u6052\u5b9a\uff09",
+        "task_collapse_to_reach\uff1a\u7b56\u7565\u6536\u655b\u4e8e 'minimize ||grip - cube||'\uff0c\u56e0\u4e3a\u5728\u8fd1\u4e4e\u786e\u5b9a\u6027\u7684\u52a8\u4f5c\u4e0b\u8fd9\u662f\u5b83\u552f\u4e00\u80fd\u5f71\u54cd\u7684\u91cf"
       ],
       "vlm_suggestions": [
-        "NEXT: combine dense reward with FIXED alpha = 0.2 (AUTO_ALPHA = False). Persistent entropy bonus + dense gradient should jointly fix signal starvation and exploration death.",
-        "Backup: gripper-biased OU exploration noise during warmup",
-        "If dense+fixed alpha still fails, the deterministic-policy bottleneck may need a temporally-correlated exploration scheme rather than i.i.d. action noise."
+        "\u4e0b\u4e00\u6b65\uff1a\u5c06 dense reward \u4e0e\u56fa\u5b9a alpha = 0.2\uff08AUTO_ALPHA = False\uff09\u7ed3\u5408\u3002\u6301\u7eed\u7684\u71b5\u5956\u52b1 + dense \u68af\u5ea6\u5e94\u5f53\u80fd\u540c\u65f6\u89e3\u51b3\u4fe1\u53f7\u532e\u4e4f\u4e0e\u63a2\u7d22\u6d88\u4ea1\u7684\u95ee\u9898\u3002",
+        "\u5907\u9009\u65b9\u6848\uff1a\u5728 warmup \u9636\u6bb5\u4f7f\u7528\u504f\u5411\u5939\u722a\u7684 OU \u63a2\u7d22\u566a\u58f0",
+        "\u5982\u679c dense + \u56fa\u5b9a alpha \u4ecd\u7136\u5931\u8d25\uff0c\u90a3\u4e48\u786e\u5b9a\u6027\u7b56\u7565\u74f6\u9888\u53ef\u80fd\u9700\u8981\u65f6\u95f4\u76f8\u5173\u7684\u63a2\u7d22\u65b9\u6848\uff0c\u800c\u4e0d\u662f i.i.d. \u7684\u52a8\u4f5c\u566a\u58f0\u3002"
       ],
       "status": "discard",
       "hypothesis_confirmed": false,
-      "lesson_learned": "Dense reward IS the right idea for breaking signal starvation, but it cannot work alone with auto-alpha: the bigger Q magnitude makes auto-alpha collapse alpha to zero, killing the very exploration that would let the policy discover manipulation. Auto-alpha effectively re-balances entropy against Q magnitude, so reward-shape changes have first-order effects on the equilibrium alpha. Solution: pin alpha (AUTO_ALPHA=False) so reward shape and exploration stay decoupled."
+      "lesson_learned": "Dense reward \u786e\u5b9e\u662f\u6253\u7834\u4fe1\u53f7\u532e\u4e4f\u7684\u6b63\u786e\u601d\u8def\uff0c\u4f46\u5b83\u65e0\u6cd5\u5728 auto-alpha \u4e0b\u5355\u72ec\u594f\u6548\uff1a\u66f4\u5927\u7684 Q \u5e45\u503c\u4f1a\u4f7f auto-alpha \u628a alpha \u574d\u7f29\u5230\u96f6\uff0c\u6070\u597d\u627c\u6740\u4e86\u80fd\u8ba9\u7b56\u7565\u53d1\u73b0\u64cd\u63a7\u7684\u90a3\u90e8\u5206\u63a2\u7d22\u3002Auto-alpha \u5b9e\u9645\u4e0a\u662f\u5728\u71b5\u4e0e Q \u5e45\u503c\u4e4b\u95f4\u91cd\u65b0\u505a\u5e73\u8861\uff0c\u56e0\u6b64\u5956\u52b1\u5f62\u72b6\u7684\u53d8\u5316\u5bf9\u5747\u8861 alpha \u6709\u4e00\u9636\u6548\u5e94\u3002\u89e3\u51b3\u65b9\u6848\uff1a\u56fa\u5b9a alpha\uff08AUTO_ALPHA=False\uff09\uff0c\u4f7f\u5956\u52b1\u5f62\u72b6\u4e0e\u63a2\u7d22\u4fdd\u6301\u89e3\u8026\u3002"
     },
     {
       "id": 5,
       "commit": "767d033",
       "timestamp": "2026-05-03T21:54:30",
       "agent": "opus-4.7",
-      "description": "组合实验:dense 训练奖励 + 固定 alpha=0.2(AUTO_ALPHA=False)。同时攻击实验 4 暴露的两个症结 — 信号匮乏(用 dense reward 解决)和 auto-alpha 在 dense reward 下崩到 0(用固定 alpha 解决)。eval 仍然走 evaluate.py 的稀疏奖励,success_rate 指标不受影响。",
-      "hypothesis": "实验 1-4 的累积分析指出:HER 在方块不动时退化为 reach,稀疏奖励无梯度,而 auto-alpha 在 dense 奖励下被驱到 0。把这两个问题用 dense reward + 固定 alpha=0.2 同时解决:dense 提供持续梯度,固定 alpha 保证持续随机探索。预期成功率从 0.10 提升到 0.20-0.60,critic_loss 应当稳定在 0.1 附近,alpha 全程 0.2。",
+      "description": "\u7ec4\u5408\u5b9e\u9a8c:dense \u8bad\u7ec3\u5956\u52b1 + \u56fa\u5b9a alpha=0.2(AUTO_ALPHA=False)\u3002\u540c\u65f6\u653b\u51fb\u5b9e\u9a8c 4 \u66b4\u9732\u7684\u4e24\u4e2a\u75c7\u7ed3 \u2014 \u4fe1\u53f7\u532e\u4e4f(\u7528 dense reward \u89e3\u51b3)\u548c auto-alpha \u5728 dense reward \u4e0b\u5d29\u5230 0(\u7528\u56fa\u5b9a alpha \u89e3\u51b3)\u3002eval \u4ecd\u7136\u8d70 evaluate.py \u7684\u7a00\u758f\u5956\u52b1,success_rate \u6307\u6807\u4e0d\u53d7\u5f71\u54cd\u3002",
+      "hypothesis": "\u5b9e\u9a8c 1-4 \u7684\u7d2f\u79ef\u5206\u6790\u6307\u51fa:HER \u5728\u65b9\u5757\u4e0d\u52a8\u65f6\u9000\u5316\u4e3a reach,\u7a00\u758f\u5956\u52b1\u65e0\u68af\u5ea6,\u800c auto-alpha \u5728 dense \u5956\u52b1\u4e0b\u88ab\u9a71\u5230 0\u3002\u628a\u8fd9\u4e24\u4e2a\u95ee\u9898\u7528 dense reward + \u56fa\u5b9a alpha=0.2 \u540c\u65f6\u89e3\u51b3:dense \u63d0\u4f9b\u6301\u7eed\u68af\u5ea6,\u56fa\u5b9a alpha \u4fdd\u8bc1\u6301\u7eed\u968f\u673a\u63a2\u7d22\u3002\u9884\u671f\u6210\u529f\u7387\u4ece 0.10 \u63d0\u5347\u5230 0.20-0.60,critic_loss \u5e94\u5f53\u7a33\u5b9a\u5728 0.1 \u9644\u8fd1,alpha \u5168\u7a0b 0.2\u3002",
       "changes_made": [
-        "AUTO_ALPHA = False(原来 True)",
-        "ReplayBuffer._compute_reward 改为返回 -d(原来 -(d>0.05))",
-        "训练循环 buffer.add 的 reward 改为 -||next_achieved_goal - desired_goal||(原来是 env 稀疏 reward)"
+        "AUTO_ALPHA = False(\u539f\u6765 True)",
+        "ReplayBuffer._compute_reward \u6539\u4e3a\u8fd4\u56de -d(\u539f\u6765 -(d>0.05))",
+        "\u8bad\u7ec3\u5faa\u73af buffer.add \u7684 reward \u6539\u4e3a -||next_achieved_goal - desired_goal||(\u539f\u6765\u662f env \u7a00\u758f reward)"
       ],
       "metrics": {
         "success_rate": 0.1,
@@ -167,22 +167,60 @@
         "total_updates": 251638,
         "peak_vram_mb": 27.39892578125
       },
-      "vlm_feedback_summary": "假设部分成立但没有突破:训练完全稳定(alpha 全程 0.200,critic_loss ~0.12,actor_loss ~-1.0,无发散),但成功率只与基线相同(0.10)。视觉行为也与基线一样 — 夹爪一致地移到方块附近,从不闭合也从不举起。",
+      "vlm_feedback_summary": "\u5047\u8bbe\u90e8\u5206\u6210\u7acb\u4f46\u6ca1\u6709\u7a81\u7834:\u8bad\u7ec3\u5b8c\u5168\u7a33\u5b9a(alpha \u5168\u7a0b 0.200,critic_loss ~0.12,actor_loss ~-1.0,\u65e0\u53d1\u6563),\u4f46\u6210\u529f\u7387\u53ea\u4e0e\u57fa\u7ebf\u76f8\u540c(0.10)\u3002\u89c6\u89c9\u884c\u4e3a\u4e5f\u4e0e\u57fa\u7ebf\u4e00\u6837 \u2014 \u5939\u722a\u4e00\u81f4\u5730\u79fb\u5230\u65b9\u5757\u9644\u8fd1,\u4ece\u4e0d\u95ed\u5408\u4e5f\u4ece\u4e0d\u4e3e\u8d77\u3002",
       "vlm_failure_modes": [
-        "exploration_structure_inadequate:i.i.d 高斯噪声(即使 alpha=0.2 不算小)在 4D 动作空间内难以产生协调的'夹爪到位 + 闭合 + 上举'多步序列",
-        "policy_locks_into_reach:dense reward 让 critic 收敛得很干净,但 critic 学到的最优策略在没有任何抓取经验的情况下就是'最小化 grip-cube 距离',mean action 收敛到悬停",
-        "her_signal_unchanged:整个 buffer 中 achieved_goal 几乎不动,HER 重标注的 future goal 仍然是方块起点附近的小簇,manipulation 信号永不出现",
-        "mean_distance_marginally_worse:0.235 vs 基线 0.214,可能是 dense reward 让 policy 更稳定地'悬停'而不像基线那样有时碰巧把方块挪几毫米"
+        "exploration_structure_inadequate:i.i.d \u9ad8\u65af\u566a\u58f0(\u5373\u4f7f alpha=0.2 \u4e0d\u7b97\u5c0f)\u5728 4D \u52a8\u4f5c\u7a7a\u95f4\u5185\u96be\u4ee5\u4ea7\u751f\u534f\u8c03\u7684'\u5939\u722a\u5230\u4f4d + \u95ed\u5408 + \u4e0a\u4e3e'\u591a\u6b65\u5e8f\u5217",
+        "policy_locks_into_reach:dense reward \u8ba9 critic \u6536\u655b\u5f97\u5f88\u5e72\u51c0,\u4f46 critic \u5b66\u5230\u7684\u6700\u4f18\u7b56\u7565\u5728\u6ca1\u6709\u4efb\u4f55\u6293\u53d6\u7ecf\u9a8c\u7684\u60c5\u51b5\u4e0b\u5c31\u662f'\u6700\u5c0f\u5316 grip-cube \u8ddd\u79bb',mean action \u6536\u655b\u5230\u60ac\u505c",
+        "her_signal_unchanged:\u6574\u4e2a buffer \u4e2d achieved_goal \u51e0\u4e4e\u4e0d\u52a8,HER \u91cd\u6807\u6ce8\u7684 future goal \u4ecd\u7136\u662f\u65b9\u5757\u8d77\u70b9\u9644\u8fd1\u7684\u5c0f\u7c07,manipulation \u4fe1\u53f7\u6c38\u4e0d\u51fa\u73b0",
+        "mean_distance_marginally_worse:0.235 vs \u57fa\u7ebf 0.214,\u53ef\u80fd\u662f dense reward \u8ba9 policy \u66f4\u7a33\u5b9a\u5730'\u60ac\u505c'\u800c\u4e0d\u50cf\u57fa\u7ebf\u90a3\u6837\u6709\u65f6\u78b0\u5de7\u628a\u65b9\u5757\u632a\u51e0\u6beb\u7c73"
       ],
       "vlm_suggestions": [
-        "下一步(实验 6):抓取偏置 warmup — STEPS_BEFORE_LEARNING 阶段强制 action[3]=-1(夹爪闭合),并把 warmup 从 1000 提升到 5000。让随机手臂运动配合闭合夹爪,提高 buffer 中方块移动事件密度",
-        "若仍不行:OU 时间相关探索噪声替代 i.i.d. 高斯,产生持续性的夹爪指令",
-        "或:多分量 dense reward(再加上 -lambda * ||grip-cube|| 项)直接塑造夹爪靠近方块的行为",
-        "如果以上都不行:回到 dense + 固定 alpha 这一基础上,叠加 UTD>1 提升每步学习量"
+        "\u4e0b\u4e00\u6b65(\u5b9e\u9a8c 6):\u6293\u53d6\u504f\u7f6e warmup \u2014 STEPS_BEFORE_LEARNING \u9636\u6bb5\u5f3a\u5236 action[3]=-1(\u5939\u722a\u95ed\u5408),\u5e76\u628a warmup \u4ece 1000 \u63d0\u5347\u5230 5000\u3002\u8ba9\u968f\u673a\u624b\u81c2\u8fd0\u52a8\u914d\u5408\u95ed\u5408\u5939\u722a,\u63d0\u9ad8 buffer \u4e2d\u65b9\u5757\u79fb\u52a8\u4e8b\u4ef6\u5bc6\u5ea6",
+        "\u82e5\u4ecd\u4e0d\u884c:OU \u65f6\u95f4\u76f8\u5173\u63a2\u7d22\u566a\u58f0\u66ff\u4ee3 i.i.d. \u9ad8\u65af,\u4ea7\u751f\u6301\u7eed\u6027\u7684\u5939\u722a\u6307\u4ee4",
+        "\u6216:\u591a\u5206\u91cf dense reward(\u518d\u52a0\u4e0a -lambda * ||grip-cube|| \u9879)\u76f4\u63a5\u5851\u9020\u5939\u722a\u9760\u8fd1\u65b9\u5757\u7684\u884c\u4e3a",
+        "\u5982\u679c\u4ee5\u4e0a\u90fd\u4e0d\u884c:\u56de\u5230 dense + \u56fa\u5b9a alpha \u8fd9\u4e00\u57fa\u7840\u4e0a,\u53e0\u52a0 UTD>1 \u63d0\u5347\u6bcf\u6b65\u5b66\u4e60\u91cf"
       ],
       "status": "discard",
       "hypothesis_confirmed": false,
-      "lesson_learned": "干净地证明了一件重要事:在这个任务上,信号(dense reward)和探索量(固定 alpha)同时修复后,仍然无法突破基线 0.10。问题不是不够的随机噪声,也不是不够的训练信号 — 而是探索的*结构*。i.i.d 高斯噪声在 4D 动作空间不会自然产生'多步协调的抓取序列'(夹爪到位 + 闭合 + 上举)。下一实验必须改变探索结构本身,而不是音量。最直接的干预是 warmup 强制夹爪闭合 — 让随机手臂运动至少有非零概率产生抓取事件。"
+      "lesson_learned": "\u5e72\u51c0\u5730\u8bc1\u660e\u4e86\u4e00\u4ef6\u91cd\u8981\u4e8b:\u5728\u8fd9\u4e2a\u4efb\u52a1\u4e0a,\u4fe1\u53f7(dense reward)\u548c\u63a2\u7d22\u91cf(\u56fa\u5b9a alpha)\u540c\u65f6\u4fee\u590d\u540e,\u4ecd\u7136\u65e0\u6cd5\u7a81\u7834\u57fa\u7ebf 0.10\u3002\u95ee\u9898\u4e0d\u662f\u4e0d\u591f\u7684\u968f\u673a\u566a\u58f0,\u4e5f\u4e0d\u662f\u4e0d\u591f\u7684\u8bad\u7ec3\u4fe1\u53f7 \u2014 \u800c\u662f\u63a2\u7d22\u7684*\u7ed3\u6784*\u3002i.i.d \u9ad8\u65af\u566a\u58f0\u5728 4D \u52a8\u4f5c\u7a7a\u95f4\u4e0d\u4f1a\u81ea\u7136\u4ea7\u751f'\u591a\u6b65\u534f\u8c03\u7684\u6293\u53d6\u5e8f\u5217'(\u5939\u722a\u5230\u4f4d + \u95ed\u5408 + \u4e0a\u4e3e)\u3002\u4e0b\u4e00\u5b9e\u9a8c\u5fc5\u987b\u6539\u53d8\u63a2\u7d22\u7ed3\u6784\u672c\u8eab,\u800c\u4e0d\u662f\u97f3\u91cf\u3002\u6700\u76f4\u63a5\u7684\u5e72\u9884\u662f warmup \u5f3a\u5236\u5939\u722a\u95ed\u5408 \u2014 \u8ba9\u968f\u673a\u624b\u81c2\u8fd0\u52a8\u81f3\u5c11\u6709\u975e\u96f6\u6982\u7387\u4ea7\u751f\u6293\u53d6\u4e8b\u4ef6\u3002"
+    },
+    {
+      "id": 6,
+      "commit": "923cc76",
+      "timestamp": "2026-05-03T22:16:18",
+      "agent": "opus-4.7",
+      "description": "抓取偏置 warmup:STEPS_BEFORE_LEARNING 1000→5000;并在 warmup 阶段强制 action[3]=-1(夹爪闭合)。其余照基线(AUTO_ALPHA=True,稀疏奖励)。",
+      "hypothesis": "实验 1-5 累积证明优化质量(LN)和探索量(alpha 调整、固定 alpha)单独不足以突破基线 0.10,因为 i.i.d 高斯噪声在 4D 动作空间内难以产生协调的多步抓取序列。让 warmup 阶段的随机手臂运动配合持续闭合的夹爪,可在 buffer 中累积真正的'方块被推/挪/夹'事件 — HER 能从中学到 manipulation 信号。预期 0.10 → 0.20-0.50。",
+      "changes_made": [
+        "STEPS_BEFORE_LEARNING: 1000 → 5000",
+        "新加 GRIPPER_CLOSE_DURING_WARMUP = True 标志",
+        "warmup 动作选择改为 env.action_space.sample() 后强制 action[3]=-1.0"
+      ],
+      "metrics": {
+        "success_rate": 0.1,
+        "mean_reward": -45.0,
+        "mean_distance": 0.2571679465814375,
+        "total_steps": 111507,
+        "total_episodes": 2230,
+        "total_updates": 106507,
+        "peak_vram_mb": 27.40087890625
+      },
+      "vlm_feedback_summary": "假设未被证实(但也未被否决):最终 eval 是 0.10(等于基线),但训练在 15 分钟被早停杀掉(spot_eval_history=[0,0,0])。问题:5-episode spot-eval 在 0.10 真实 sr 下 P(0/5)≈0.59,3 连续 0/5 的概率约 20% — 早停假阴性。alpha 仍按以前路径崩到 0.002,critic_loss ~0.95,policy 学到 reach。",
+      "vlm_failure_modes": [
+        "alpha_collapse_unchanged:warmup 阶段的特殊动作没影响后续 auto-alpha 的行为,alpha 仍崩到 0.002",
+        "warmup_data_diluted:5K 的 manipulation 候选数据相对 200K buffer 容量只占 2.5%,后续 105K 步 deterministic policy 收集的'方块不动'数据淹没了它",
+        "no_signal_amplification:稀疏 reward 下 HER 重标注的成功条件(d<0.05)严苛,即使 buffer 里有方块小幅移动事件,转化为可执行策略需要的连贯轨迹仍然稀缺",
+        "early_stop_false_negative:5-ep spot-eval 在 0.10 sr 下假阴性率约 20%,本次刚好命中"
+      ],
+      "vlm_suggestions": [
+        "下一步(实验 7):**三合一组合**:gripper-close warmup + 固定 alpha(AUTO_ALPHA=False)+ dense reward。每个杠杆单独都失败但失效模式互补 — 结构(warmup)+ 数量(固定 alpha)+ 信号(dense reward)同时修复",
+        "若三合一仍 ≤ 0.10:多分量 dense reward(再加 -lambda*||grip-cube||)显式塑造夹爪贴近方块",
+        "再失败:OU 时间相关噪声替代 i.i.d 高斯(产生持续的夹爪指令)",
+        "底牌:TD3 + 持续 action noise(完全换算法)"
+      ],
+      "status": "discard",
+      "hypothesis_confirmed": false,
+      "lesson_learned": "单独的 gripper-close warmup 不足以突破基线 0.10,因为 warmup 之后 auto-alpha 仍按老套路崩到 0.002,policy 变 deterministic 后再也不出现方块移动事件;早期 5K 步的 manipulation 候选数据在 200K buffer 里被稀释到 2.5%,无法通过 HER 转化为有效策略。结合实验 5 的发现:三个杠杆(结构 / 数量 / 信号)必须 *同时* 修复才有机会。下一步实验 7 做三合一组合。早停教训:5-episode spot-eval 在临界水平有非平凡假阴性率 — 真正想避免被杀必须早期 sr 突破到 0.2+。"
     }
   ],
   "insights": [
@@ -194,21 +232,24 @@
     "CODEBASE CONVENTION: SACAgent.target_entropy is the NEGATIVE of H_target (used in alpha_loss = -log_alpha * (log_prob + target_entropy)). target_entropy = -4 means H_target = 4. To increase exploration, make target_entropy MORE negative (e.g., -8).",
     "Without any exploration regularization (alpha near 0), the critic Q-values can diverge to ~50 \u2014 entropy bonus also acts as a soft constraint on Q-magnitude.",
     "AUTO-ALPHA + DENSE REWARD INTERACTION: bigger Q magnitude from dense reward causes auto-alpha to drive alpha all the way to 0. So any reward-shape change implicitly retunes the exploration equilibrium. Pinning alpha (AUTO_ALPHA=False) decouples them.",
-    "实验 5 关键洞察:dense reward + 固定 alpha=0.2 让训练完全稳定(critic_loss ~0.12,alpha 全程 0.2,无发散),但成功率仍卡在 0.10 — 等于基线。证明优化质量和探索量都不是当前瓶颈。瓶颈是探索结构:i.i.d 高斯噪声在 4D 动作空间无法产生协调的多步抓取序列。要突破必须改变探索结构本身(强制夹爪闭合 / OU 噪声 / 多分量奖励塑形等)。"
+    "\u5b9e\u9a8c 5 \u5173\u952e\u6d1e\u5bdf:dense reward + \u56fa\u5b9a alpha=0.2 \u8ba9\u8bad\u7ec3\u5b8c\u5168\u7a33\u5b9a(critic_loss ~0.12,alpha \u5168\u7a0b 0.2,\u65e0\u53d1\u6563),\u4f46\u6210\u529f\u7387\u4ecd\u5361\u5728 0.10 \u2014 \u7b49\u4e8e\u57fa\u7ebf\u3002\u8bc1\u660e\u4f18\u5316\u8d28\u91cf\u548c\u63a2\u7d22\u91cf\u90fd\u4e0d\u662f\u5f53\u524d\u74f6\u9888\u3002\u74f6\u9888\u662f\u63a2\u7d22\u7ed3\u6784:i.i.d \u9ad8\u65af\u566a\u58f0\u5728 4D \u52a8\u4f5c\u7a7a\u95f4\u65e0\u6cd5\u4ea7\u751f\u534f\u8c03\u7684\u591a\u6b65\u6293\u53d6\u5e8f\u5217\u3002\u8981\u7a81\u7834\u5fc5\u987b\u6539\u53d8\u63a2\u7d22\u7ed3\u6784\u672c\u8eab(\u5f3a\u5236\u5939\u722a\u95ed\u5408 / OU \u566a\u58f0 / \u591a\u5206\u91cf\u5956\u52b1\u5851\u5f62\u7b49)\u3002",
+    "\u5b9e\u9a8c 6 \u5173\u952e\u6d1e\u5bdf:gripper-close warmup \u5355\u72ec\u4e0d\u591f\u3002warmup \u540e auto-alpha \u4ecd\u5d29\u5230 0.002,policy \u53d8 deterministic \u540e\u518d\u4e5f\u4e0d\u51fa\u73b0\u65b9\u5757\u79fb\u52a8,buffer \u91cc\u65e9\u671f\u7684 manipulation \u5019\u9009\u6570\u636e\u88ab\u7a00\u91ca\u5230 2.5%,\u65e0\u6cd5\u8f6c\u5316\u4e3a\u53ef\u6267\u884c\u7b56\u7565\u3002\u7ed3\u5408\u5b9e\u9a8c 5,3 \u4e2a\u6760\u6746(warmup \u7ed3\u6784 / \u56fa\u5b9a alpha \u6570\u91cf / dense reward \u4fe1\u53f7)\u5fc5\u987b\u540c\u65f6\u4e0a\u624d\u6709\u53ef\u80fd\u7a81\u7834\u3002",
+    "\u65e9\u505c\u7075\u654f\u5ea6\u9650\u5236:run_spot_eval \u7528 5 \u4e2a episode,\u5728 sr=0.10 \u771f\u5b9e\u7b56\u7565\u4e0b P(0/5)=0.59,3 \u8fde\u7eed 0/5 \u5047\u9634\u6027\u7387\u7ea6 20%\u3002\u8981\u7a33\u5065\u907f\u514d\u88ab\u6740,\u5b9e\u9a8c\u5fc5\u987b\u5728 ~10 \u5206\u949f\u5185 spot-eval \u7a81\u7834\u5230 0.2+ \u4ee5\u4e0a\u3002"
   ],
   "failed_directions": [
     "LayerNorm in BOTH actor + critic with AUTO_ALPHA on. Hurts reach, kills alpha, slows throughput. May still be worth trying critic-only LN once exploration is fixed.",
     "Halving target_entropy magnitude (target_entropy = -action_dim/2). Counter-productive in this code's sign convention: lowers H_target, alpha collapses further, critic diverges. To go the other way, use -action_dim*2.",
     "Dense reward ALONE (with AUTO_ALPHA still on). Alpha collapses to 0, deterministic policy never bumps cube, dense gradient is flat per episode. Need to pin alpha to make dense reward work.",
-    "Dense reward + 固定 alpha=0.2(AUTO_ALPHA=False)组合。训练干净稳定但成功率只到 0.10(等于基线)。问题不在信号或探索量,而在探索结构 — 单纯的 i.i.d 高斯噪声在 50 步 episode 内无法发现协调的抓取多步序列。"
+    "Dense reward + \u56fa\u5b9a alpha=0.2(AUTO_ALPHA=False)\u7ec4\u5408\u3002\u8bad\u7ec3\u5e72\u51c0\u7a33\u5b9a\u4f46\u6210\u529f\u7387\u53ea\u5230 0.10(\u7b49\u4e8e\u57fa\u7ebf)\u3002\u95ee\u9898\u4e0d\u5728\u4fe1\u53f7\u6216\u63a2\u7d22\u91cf,\u800c\u5728\u63a2\u7d22\u7ed3\u6784 \u2014 \u5355\u7eaf\u7684 i.i.d \u9ad8\u65af\u566a\u58f0\u5728 50 \u6b65 episode \u5185\u65e0\u6cd5\u53d1\u73b0\u534f\u8c03\u7684\u6293\u53d6\u591a\u6b65\u5e8f\u5217\u3002",
+    "Gripper-close warmup(STEPS_BEFORE_LEARNING=5000,warmup \u9636\u6bb5\u5f3a\u5236 action[3]=-1)\u5355\u72ec + auto-alpha + sparse reward\u3002\u6700\u7ec8 eval 0.10(\u7b49\u4e8e\u57fa\u7ebf)\u3002warmup \u6570\u636e\u88ab\u540e\u7eed deterministic policy \u9636\u6bb5\u7a00\u91ca,alpha \u4ecd\u5d29\u5230 0.002\u3002\u9700\u8981\u4e0e\u56fa\u5b9a alpha + dense reward \u7ec4\u5408\u3002"
   ],
   "promising_directions": [
-    "下一步(实验 6):抓取偏置 warmup — 在 STEPS_BEFORE_LEARNING 阶段强制 action[3]=-1(夹爪闭合),并把 warmup 提到 5000 步。直接攻击探索结构问题",
-    "OU 时间相关探索噪声(替代 i.i.d. 高斯,产生持续性夹爪指令)",
-    "多分量 dense reward:加 -lambda * ||grip-cube|| 项,引导夹爪贴近方块",
-    "TD3 替换 SAC(deterministic policy + 持久 action noise)",
-    "UTD > 1(在信号 + 探索结构问题修复后再考虑)",
-    "MHER(lambda) — n-step HER 去 bias",
-    "Critic-only LN(等探索结构修好再回头看)"
+    "\u4e0b\u4e00\u6b65(\u5b9e\u9a8c 7):**\u4e09\u5408\u4e00\u7ec4\u5408** \u2014 gripper-close warmup + AUTO_ALPHA=False(\u56fa\u5b9a alpha=0.2)+ dense reward\u3002\u7ed3\u6784 / \u6570\u91cf / \u4fe1\u53f7\u540c\u65f6\u4e0a",
+    "\u82e5\u4e09\u5408\u4e00\u4e0d\u884c:\u591a\u5206\u91cf dense reward(\u52a0 -lambda*||grip-cube|| \u9879)\u663e\u5f0f\u5851\u9020\u5939\u722a\u8d34\u8fd1\u65b9\u5757",
+    "OU \u65f6\u95f4\u76f8\u5173\u63a2\u7d22\u566a\u58f0(\u66ff\u4ee3 i.i.d. \u9ad8\u65af,\u4ea7\u751f\u6301\u7eed\u6027\u5939\u722a\u6307\u4ee4)",
+    "TD3 \u66ff\u6362 SAC(deterministic policy + \u6301\u4e45 action noise) \u2014 \u5e95\u724c",
+    "UTD > 1(\u5728\u4fe1\u53f7 + \u63a2\u7d22\u7ed3\u6784\u95ee\u9898\u4fee\u590d\u540e\u518d\u8003\u8651)",
+    "MHER(lambda) \u2014 n-step HER \u53bb bias",
+    "Critic-only LN(\u7b49\u63a2\u7d22\u7ed3\u6784\u4fee\u597d\u518d\u56de\u5934\u770b)"
   ]
 }

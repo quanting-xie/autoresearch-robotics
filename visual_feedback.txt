@@ -1,60 +1,76 @@
-实验 5 — dense reward + 固定 alpha=0.2 (AUTO_ALPHA=False)
-=========================================================
+实验 6 — 抓取偏置 warmup(夹爪闭合 + 5000 步)
+=================================================
 eval_success_rate: 0.10(等于基线 0.10)
-mean_reward: -45.0   |   mean_distance: 0.235(略差于基线 0.214)
-training_seconds: 1800   |   total_steps: 252,638(基线 279K,略低)
-total_updates: 251,638
+mean_reward: -45.0   |   mean_distance: 0.257(差于基线 0.214)
+training_seconds: 900(被早停 — 仅基线时间的一半)
+total_steps: 111,507(基线 279K,本实验只有 40%)
+total_updates: 106,507(基线 278K)
+spot_eval_history: [0.0, 0.0, 0.0]
+early_stop_reason: no-progress — 600s elapsed, last 3 spot-evals all 0
 
-判定:与基线持平。按 program.md 规则 discard(等于基线即丢弃)。
-但训练日志干净 — 这次是真正"什么都没坏",只是没有突破。
+判定:与基线持平,但训练时长只有一半 — 信息复杂,讨论后仍 discard。
 
 帧分析
 ------
-- ep0_end:夹爪正悬停在方块正上方;goal(红球)在空中偏左。方块未移动。
-- ep1_end:夹爪降到方块旁,goal 也在桌面上方块附近。视觉上和 baseline reach 几乎一样。
-- ep2_end:夹爪在方块正上方。方块未动。
-对比 baseline:行为基本一致 — 夹爪到达方块附近,不抓不举。
+- ep0_end:夹爪降到桌面左侧,方块在桌面右侧,目标(红球)在两者之间空中。
+  夹爪没靠近方块。reach 不如基线一致。
+- ep1_end:夹爪到达方块右侧;目标在方块左边的桌面上。reach 大致到位。
+- ep2_end:夹爪在桌面上;**注意:这一帧里看不到黑色方块** — 可能被夹爪
+  遮挡,也可能这一 episode 实际上挪动了方块到了视野外。10/10 个 episode
+  里有 1 个成功(success rate 0.10),不能完全排除是这一 episode。
+
+早停意义讨论
+-----------
+- 训练阶段的 spot-eval 用 5 个 episode,在最终 success_rate=0.10 的策略下,
+  P(0 个成功 / 5 episode) = 0.9^5 ≈ 0.59。
+- 三连续 0/5 的概率 = 0.59³ ≈ 20% — 也就是说基线水平的策略本来就有 1/5
+  概率被早停误杀。
+- 本实验确实是 baseline 水平(最终 10/10 eval 给出 0.10),但被早停判为
+  "no-progress" 提前结束。
+- 启示:早停的 5-episode 灵敏度对临界水平的策略友好度有限。要让早停判定
+  "看到了进步",我们需要让 spot-eval 在 ~10 分钟以内观察到 sr > 0.2。
+- evaluate.py 是只读的,我无法调早停。只能让下一实验真正快速突破到 0.2+
+  以上,避免假阴性。
 
 训练曲线告诉我什么
 ------------------
-- alpha 整个训练保持在 0.200(预期内,因为 AUTO_ALPHA=False)
-- critic_loss 稳定在 ~0.12(baseline 是 ~0.15,略好;说明 dense reward 让 critic
-  更容易拟合)
-- actor_loss 在 -1.0 附近(负值,说明 Q 平均为正;policy 找到了一个
-  稳定但非最优的策略)
-- 吞吐 ~140 步/秒,比 baseline 170 略低,但合理
+- 0-5K 步:warmup 阶段。alpha=1.0 fixed,critic_loss=0,actor_loss=0(没学习)
+- 5K-6K:学习开始。alpha 1.0 -> 0.741(第一次更新)
+- 后续:alpha 仍按 auto 收敛,到 110K 步已经掉到 **0.002**(和实验 2 类似)
+- critic_loss 稳态 ~0.95(高于基线 0.15)
+- actor_loss +1.85(说明 Q 偏负,policy 表现差)
 
-为什么 dense + 固定 alpha 没突破
--------------------------------
-关键洞察:固定 alpha=0.2 给的是"足够大"的探索噪声,但探索的*结构*没变 —
-还是 4D 各分量独立的高斯噪声。问题在于:
-1. 抓取需要协调:夹爪到方块位置 + 夹爪闭合 + 手臂上提,这是个多步连续序列
-2. i.i.d 高斯噪声每步独立,不会自然产生"持续闭合夹爪几步"这种序列
-3. 即使 alpha=0.2 足够大,policy 的 mean 主导,而 mean 一旦学到"hover near cube",
-   就把夹爪指令保持在某个中间值附近,几乎不闭合
-4. 结果:整个 buffer 里方块几乎从不移动 → HER 重标注的 achieved_goal 仍然
-   集中在方块起点 → manipulation 信号永远不出现 → 学不到抓取
+为什么单独的"warmup 闭合夹爪"不够
+---------------------------------
+- 5000 步 warmup ≈ 100 个 episode,夹爪一直闭合 + 手臂随机摇摆。理论上
+  应该撞到方块若干次,buffer 里应该有"方块被推走"的转移。
+- BUT:warmup 之后(> 5K 步),policy 接管,auto-alpha 还是按以前的方式
+  迅速崩塌到 0,policy 变 deterministic,新数据不再出现方块移动事件。
+- buffer 容量 200K,warmup 的 5K manipulation 候选数据相对于 200K 总容量
+  占 2.5% — 信号被淹没。
+- HER 重标注虽然能放大早期数据,但只要 critic 还是 sparse reward 训练 +
+  policy 早早变 deterministic,这些 manipulation 候选数据无法转化成可执行
+  的策略。
 
-实验 1-5 累计结论
------------------
-- 优化稳定性(LayerNorm)单独不够,反而把 auto-alpha 推到 0
-- 探索量(target_entropy 调整、固定 alpha)单独不够,Gaussian noise 结构无法
-  产生协调抓取
-- 信号(dense reward)单独不够,固定 alpha 配合也只能持平 baseline
-- 必须改的是探索的*结构*:某种方式让 buffer 里出现实际的方块移动事件,
-  HER 才能从中学习
+实验 1-6 累计结论(强化版)
+--------------------------
+基线 0.10 是 SAC+HER 在这个固定预算下的稳态。每条单独干预都无法突破:
+- 优化稳定性(LayerNorm)→ 反作用:0.0
+- alpha 调高(target_entropy)→ 符号搞错 + critic 发散:0.0
+- dense reward 单独 → alpha 崩到 0:0.0
+- dense reward + 固定 alpha → 训练干净但只 reach:0.10
+- 闭合夹爪 warmup + auto-alpha → 数据被冲掉,只 reach:0.10
 
-下一步:抓取偏置 warmup
----------------------
-方案:在 STEPS_BEFORE_LEARNING 阶段(随机动作)强制 action[3]=-1(夹爪闭合),
-并把 warmup 从 1000 步加到 5000 步(~100 个 episode)。这样手臂随机摸索
-但夹爪一直闭合;只要随机手臂偶尔碰到方块,就有概率推动方块、夹住方块、
-甚至举起方块。这些事件进 buffer 后,HER 重标注产生"方块移到 X 位置"的
-synthetic 目标,policy 学到协调抓取的内在奖励结构。
-单变量改动,直接攻击探索结构 — 之前 5 个实验都没碰过这条线。
+要突破必须 *同时* 解决:
+1) **结构**:warmup 闭合夹爪,seed buffer 里的 manipulation 候选数据
+2) **数量**:固定 alpha=0.2,保持训练后期持续探索
+3) **信号**:dense reward,把 grip-cube + cube-goal 距离转化为可微信号
 
-如果还不行的备选
----------------
-- 多分量 dense reward(加 -||grip-cube|| 项)
-- OU 时间相关探索噪声
-- TD3 替换 SAC(deterministic policy + 持久 action noise)
+下一实验:三合一组合
+--------------------
+实验 7 = 实验 5 (dense + 固定 alpha) + 实验 6 (gripper-close warmup)。
+每个杠杆都已经单独测过且失败,但失败模式互补 — 组合应该有机会突破。
+
+风险 1:早停假阴性。需要在 10 分钟内 spot-eval 至少出现 0.2+。
+风险 2:三个变量同时变,如果失败不容易归因。但我们已经穷尽单变量,
+        组合是合理的下一步;若成功后续 ablate。

@@ -1,7 +1,7 @@
 {
   "best_commit": "6b5cfd7",
   "best_success_rate": 0.2,
-  "total_experiments": 18,
+  "total_experiments": 19,
   "experiments": [
     {
       "id": 12,
@@ -258,6 +258,45 @@
       "status": "keep",
       "hypothesis_confirmed": true,
       "lesson_learned": "Sparse training with long-ceiling early stop can tie the best success rate and improve mean reward, but visual behavior is not yet robust; the infrastructure is promising but not a new best by success rate."
+    },
+    {
+      "id": 19,
+      "commit": "88dc11b",
+      "timestamp": "2026-05-03T22:32:04",
+      "agent": "codex",
+      "description": "Combined the sparse early-stop infrastructure from 65db451 with the exp10 dense shaping recipe, LayerNorm critic, Q_MIN clamp, and N_UPDATES=3.",
+      "hypothesis": "Sparse early-stop tied the best scalar success, while exp10 remains the strongest known dense shaping recipe. Restoring exp10 shaping on top of the longer early-stop runner should improve spot-eval stability and exceed 0.20 success.",
+      "changes_made": [
+        "Set N_UPDATES from 1 back to 3.",
+        "Restored exp10 grip-distance, block-goal-distance, block-velocity, and at-goal training rewards.",
+        "Restored LayerNorm in both critic networks.",
+        "Restored Q_MIN=-200 target clamp and removed entropy from the critic bootstrap target."
+      ],
+      "metrics": {
+        "success_rate": 0.0,
+        "mean_reward": -50.0,
+        "mean_distance": 0.21535458976309668,
+        "total_steps": 39798,
+        "total_episodes": 795,
+        "total_updates": 116394,
+        "peak_vram_mb": 28.97119140625
+      },
+      "vlm_feedback_summary": "the policy regressed to zero final success; sampled rollouts show hovering, retreating, and no useful block transport",
+      "vlm_failure_modes": [
+        "spot evals were unstable then collapsed: 0.20, 0.00, 0.00, 0.00",
+        "critic loss climbed into the 300-400 range during early training",
+        "episode 0 moved the gripper away from the table after start while the block stayed put",
+        "episode 1 hovered near the block without moving it to the goal",
+        "episode 2 retreated behind the table and left the block stationary"
+      ],
+      "vlm_suggestions": [
+        "discard the full exp10 restore on the early-stop runner",
+        "restore the sparse early-stop baseline from 65db451",
+        "if continuing, test smaller isolated changes such as N_UPDATES=2 or one shaping component at a time"
+      ],
+      "status": "discard",
+      "hypothesis_confirmed": false,
+      "lesson_learned": "The complete exp10 recipe does not transfer cleanly onto the early-stop sparse runner. Replay ratio 3 plus dense shaping and critic target changes caused early noisy value learning and no-progress early stop, so future tests should isolate one factor at a time."
     }
   ],
   "insights": [
@@ -268,7 +307,8 @@
     "N_UPDATES=4 with AT_GOAL_BONUS=20 recovers 0.10 success but remains below N_UPDATES=3, suggesting RR=3 is the better wall-clock tradeoff.",
     "Goal-progress shaping improved mean distance to 0.255 but yielded 0.0 success, indicating near-miss behavior without final placement.",
     "A broad +10 Gaussian local-goal bonus destabilized value learning and worsened mean distance to 0.376.",
-    "Sparse N_UPDATES=1 with long-ceiling early-stop instrumentation tied the 0.20 best success rate, but visual rollouts still lacked robust transport."
+    "Sparse N_UPDATES=1 with long-ceiling early-stop instrumentation tied the 0.20 best success rate, but visual rollouts still lacked robust transport.",
+    "Fully restoring exp10 shaping, LayerNorm critic, Q_MIN clamp, and N_UPDATES=3 on top of early-stop instrumentation regressed to 0.0 success."
   ],
   "failed_directions": [
     "AT_GOAL_BONUS 20 -> 5 while using N_UPDATES=4: regressed success_rate to 0.10 and produced approach/hover behavior rather than reliable transport.",
@@ -276,12 +316,13 @@
     "Close-command bonus gated within 6 cm of the block: regressed success_rate to 0.0 and caused weak or misdirected contact without transport.",
     "N_UPDATES 3 -> 4 with AT_GOAL_BONUS=20: recovered only 0.10 success and showed early loss spikes plus weak transport.",
     "Capped block-goal progress bonus: improved mean distance but regressed success to 0.0 and produced near-misses.",
-    "Broad Gaussian local-goal bonus: regressed success to 0.0, worsened mean distance to 0.376, and caused arm retraction."
+    "Broad Gaussian local-goal bonus: regressed success to 0.0, worsened mean distance to 0.376, and caused arm retraction.",
+    "Full exp10 recipe on early-stop sparse infrastructure: regressed success to 0.0 and hit no-progress early stop after spot evals 0.20, 0.00, 0.00, 0.00."
   ],
   "promising_directions": [
     "Restore exp10 settings, then address jerkiness with a smoother local final-placement reward instead of lowering the flat at-goal bonus.",
     "Ablate N_UPDATES=4 separately against N_UPDATES=3 only after returning the at-goal bonus to the metric-best value.",
     "Preserve the exp10 transport rewards and add more selective contact-acquisition shaping rather than weakening terminal or velocity transport incentives.",
-    "Combine the new early-stop/long-ceiling infrastructure with the exp10 dense shaping recipe."
+    "Use the sparse early-stop baseline as the current infrastructure anchor and test isolated changes, especially N_UPDATES=2 or a single lightweight shaping term."
   ]
 }

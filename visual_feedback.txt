@@ -165,3 +165,27 @@ Visible failure modes:
 
 Next suggestion:
 - Treat the sparse early-stop setup as promising infrastructure, but do not replace the best metric anchor yet. A useful next test would reintroduce the proven exp10 shaping terms on top of the early-stop/long-ceiling infrastructure, then compare whether spot-eval stability improves.
+
+Exp 19 visual analysis (commit 88dc11b)
+
+Quantitative result: eval_success_rate 0.000000, eval_mean_reward -50.000000, eval_mean_distance 0.215355. Training stopped after 1200.1s at 39798 steps with early_stop_reason "no-progress - 600s elapsed, last 3 spot-evals all 0". Spot eval history was [0.20, 0.00, 0.00, 0.00].
+
+Observed behavior:
+- Episode 0: the arm starts over the block, then extends away from the table; the block remains stationary and off target.
+- Episode 1: the gripper hovers near the object and goal region, but does not move the block to the red marker.
+- Episode 2: the gripper retreats behind/above the robot side of the table while the block and goal stay separated.
+
+Comparison to previous best:
+- This is a clear scalar regression from both exp10 and exp18, which each reached 0.20 success. Mean distance is similar to exp18, but final sparse success collapsed to zero and sampled rollouts show no useful transport.
+
+Hypothesis assessment:
+- The hypothesis was not confirmed. The full exp10 restore did not stabilize or improve the early-stop runner. It produced one early 0.20 spot eval, followed by three zero spot evals and no-progress termination.
+
+Visible failure modes:
+- Spot-eval instability followed by collapse.
+- Critic loss climbed into the 300-400 range during early training.
+- The gripper hovers near the block or retreats, rather than maintaining useful contact.
+- Block displacement remains absent in sampled rollouts.
+
+Next suggestion:
+- Discard the full exp10 restore and return to the sparse early-stop baseline. If continuing, isolate factors one at a time, starting with N_UPDATES=2 or a single lightweight shaping term rather than replay ratio, dense rewards, LayerNorm, and target clamp together.

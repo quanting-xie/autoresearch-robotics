@@ -80,6 +80,14 @@ UPDATE_EVERY = 1                # gradient steps per env step
 N_UPDATES = 1                   # number of gradient updates per update cycle
 WARMUP_STEPS = 0                # steps with random actions after learning starts
 
+# Controller-style transport prior for near-contact states.
+USE_PUSH_CONTROLLER = True
+PUSH_XY_RADIUS = 0.10
+PUSH_Z_WINDOW = 0.15
+PUSH_ACTION_MAG = 0.65
+PUSH_DOWN_ACTION = 0.25
+PUSH_BLEND = 0.65
+
 # ---------------------------------------------------------------------------
 # Observation normalization
 # ---------------------------------------------------------------------------
@@ -121,6 +129,40 @@ class RunningMeanStd:
 
 def get_activation(name):
     return {"relu": nn.ReLU, "tanh": nn.Tanh, "gelu": nn.GELU}[name]
+
+
+def apply_push_controller(obs_dict, action):
+    """Blend in a persistent table push when the gripper is close to the block."""
+    if not USE_PUSH_CONTROLLER:
+        return action
+
+    action = np.asarray(action, dtype=np.float32).copy()
+    obs = obs_dict["observation"]
+    gripper_pos = obs[:3]
+    block_pos = obs_dict["achieved_goal"]
+    goal_pos = obs_dict["desired_goal"]
+
+    block_goal_xy = goal_pos[:2] - block_pos[:2]
+    block_goal_dist = np.linalg.norm(block_goal_xy)
+    if block_goal_dist <= 0.05:
+        return action
+
+    grip_block_xy = block_pos[:2] - gripper_pos[:2]
+    xy_dist = np.linalg.norm(grip_block_xy)
+    z_offset = gripper_pos[2] - block_pos[2]
+    if xy_dist > PUSH_XY_RADIUS or abs(z_offset) > PUSH_Z_WINDOW:
+        return action
+
+    controller = np.zeros_like(action)
+    if z_offset > 0.035:
+        controller[2] = -PUSH_DOWN_ACTION
+    else:
+        push_dir = block_goal_xy / (block_goal_dist + 1e-6)
+        controller[:2] = PUSH_ACTION_MAG * push_dir
+        controller[2] = -0.05
+
+    blended = (1.0 - PUSH_BLEND) * action + PUSH_BLEND * controller
+    return np.clip(blended, action_low, action_high)
 
 
 class Actor(nn.Module):
@@ -547,6 +589,12 @@ if WANDB_ENABLED:
                 "steps_before_learning": STEPS_BEFORE_LEARNING,
                 "update_every": UPDATE_EVERY,
                 "n_updates": N_UPDATES,
+                "use_push_controller": USE_PUSH_CONTROLLER,
+                "push_xy_radius": PUSH_XY_RADIUS,
+                "push_z_window": PUSH_Z_WINDOW,
+                "push_action_mag": PUSH_ACTION_MAG,
+                "push_down_action": PUSH_DOWN_ACTION,
+                "push_blend": PUSH_BLEND,
                 "num_params": num_params,
             },
         )
@@ -588,6 +636,7 @@ while True:
         action = env.action_space.sample()
     else:
         action = agent.select_action(obs, deterministic=False)
+    action = apply_push_controller(obs, action)
 
     # Environment step
     next_obs, reward, terminated, truncated, info = env.step(action)
@@ -691,7 +740,8 @@ while True:
         last_spot_eval_at = total_training_time
         # Build a deterministic policy fn from the current agent.
         def _spot_policy_fn(obs_dict, _agent=agent):
-            return _agent.select_action(obs_dict, deterministic=True)
+            action = _agent.select_action(obs_dict, deterministic=True)
+            return apply_push_controller(obs_dict, action)
         sr_spot = run_spot_eval(_spot_policy_fn, ENV_ID, n_episodes=5)
         spot_eval_history.append(sr_spot)
         print(f"\n[spot-eval] step {total_steps} | sr={sr_spot:.2f} | "
@@ -727,7 +777,8 @@ print("\n--- Evaluation ---")
 
 # Create policy function for evaluation
 def policy_fn(obs_dict):
-    return agent.select_action(obs_dict, deterministic=True)
+    action = agent.select_action(obs_dict, deterministic=True)
+    return apply_push_controller(obs_dict, action)
 
 # Quantitative evaluation
 metrics = evaluate(policy_fn, ENV_ID, n_episodes=EVAL_EPISODES)

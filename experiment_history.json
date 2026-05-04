@@ -1,11 +1,11 @@
 {
-  "best_commit": null,
+  "best_commit": "ed69e5e",
   "best_success_rate": 0.1,
   "total_experiments": 1,
   "experiments": [
     {
       "id": 1,
-      "commit": null,
+      "commit": "ed69e5e",
       "timestamp": "2026-05-03T19:38:32",
       "agent": "opus-4.7",
       "description": "Baseline SAC+HER on FetchPickAndPlace-v4, train.py unmodified.",

@@ -1,1 +1,2 @@
 commit	success_rate	mean_reward	vlm_summary	status	description
+ed69e5e	0.100000	-45.0	reach learned, gripper never closes/lifts; cube never moves	keep	baseline (unmodified train.py)

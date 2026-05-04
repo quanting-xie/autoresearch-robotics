@@ -213,3 +213,27 @@ Visible failure modes:
 
 Next suggestion:
 - Restore N_UPDATES=1. Avoid increasing sparse replay ratio without another stabilizer; the next isolated test should be a very small contact or action prior on the sparse early-stop baseline.
+
+Exp 21 visual analysis (commit 6011c39)
+
+Quantitative result: eval_success_rate 0.000000, eval_mean_reward -50.000000, eval_mean_distance 0.279210. Training ran for 1800.0s and stopped with early_stop_reason "no-progress - 600s elapsed, last 3 spot-evals all 0". Spot eval history was [0.00, 0.00, 0.20, 0.00, 0.00, 0.00].
+
+Observed behavior:
+- Episode 0: the gripper descends close to the block and by the end is over/near it, but the block stays off the red goal marker.
+- Episode 1: the gripper starts near the block, then remains beside or above it without generating visible object displacement toward the goal.
+- Episode 2: the block starts very close to the red marker, but the gripper moves beside it and fails to complete placement.
+
+Comparison to previous best:
+- Relative to exp18, the entropy floor produced a similar mid-run 0.20 spot eval but worse final evaluation. Relative to exp10/exp18's 0.20 best, the final score regressed to zero and mean distance remained weak.
+
+Hypothesis assessment:
+- The hypothesis was not confirmed. MIN_ALPHA=0.02 did preserve enough exploration to hit one 0.20 spot eval, but it did not stabilize success. The final three spot evals were all zero and the final rendered rollouts show no useful transport.
+
+Visible failure modes:
+- Approach or hover near the object without stable pushing or grasping.
+- Block remains stationary or nearly stationary in all sampled final rollouts.
+- Even easy near-goal initial geometry is not reliably finished.
+- Entropy preservation alone increases exploration but does not solve goal-directed object transport.
+
+Next suggestion:
+- Discard the entropy-floor change and restore the sparse N_UPDATES=1 early-stop baseline. The next isolated test should target the contact-to-transport bottleneck directly, for example with a very small near-contact action prior or push-direction shaping gated by gripper-block proximity, rather than another pure entropy or replay-ratio change.

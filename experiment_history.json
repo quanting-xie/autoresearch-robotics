@@ -1,7 +1,7 @@
 {
   "best_commit": "6b5cfd7",
   "best_success_rate": 0.2,
-  "total_experiments": 20,
+  "total_experiments": 21,
   "experiments": [
     {
       "id": 12,
@@ -334,6 +334,43 @@
       "status": "discard",
       "hypothesis_confirmed": false,
       "lesson_learned": "Increasing sparse replay ratio from 1 to 2 reduced wall-clock exploration and increased critic error without producing any successful spot evals. The early-stop sparse baseline appears sensitive to extra updates."
+    },
+    {
+      "id": 21,
+      "commit": "6011c39",
+      "timestamp": "2026-05-04T11:30:25",
+      "agent": "gpt-5.5",
+      "description": "Added a small MIN_ALPHA=0.02 entropy floor to the sparse N_UPDATES=1 early-stop baseline.",
+      "hypothesis": "Exp18 tied the best while spot evals were unstable and entropy could collapse. Keeping alpha at least 0.02 should preserve exploration/contact attempts longer without changing replay ratio or reward shaping, improving spot-eval stability over exp18.",
+      "changes_made": [
+        "Added MIN_ALPHA=0.02.",
+        "Clamped the automatically tuned SAC entropy coefficient to max(exp(log_alpha), MIN_ALPHA).",
+        "Kept sparse reward recomputation, HER_K=4, N_UPDATES=1, and the early-stop infrastructure unchanged."
+      ],
+      "metrics": {
+        "success_rate": 0.0,
+        "mean_reward": -50.0,
+        "mean_distance": 0.2792095631371979,
+        "total_steps": 237956,
+        "total_episodes": 4759,
+        "total_updates": 236956,
+        "peak_vram_mb": 27.40087890625
+      },
+      "vlm_feedback_summary": "entropy floor produced one mid-run 0.20 spot eval but final success was 0.0; rendered rollouts show approach/hover behavior with no useful block transport",
+      "vlm_failure_modes": [
+        "final eval success was 0.0 despite spot-eval history 0.00, 0.00, 0.20, 0.00, 0.00, 0.00",
+        "gripper approaches the block or hovers beside/above it but does not push it to the goal",
+        "block remains stationary or nearly stationary in all three rendered rollouts",
+        "extra entropy preserves some exploration but does not turn contact attempts into stable goal-directed transport"
+      ],
+      "vlm_suggestions": [
+        "discard the entropy-floor change and restore the sparse N_UPDATES=1 baseline",
+        "avoid pure exploration/entropy tweaks as the next main direction unless paired with a transport-specific signal",
+        "try a small action-prior or goal-directed push bias only when the gripper is already near the block"
+      ],
+      "status": "discard",
+      "hypothesis_confirmed": false,
+      "lesson_learned": "A small SAC entropy floor can keep the sparse early-stop run alive long enough to hit a 0.20 spot eval, but it did not improve final evaluation or rendered behavior; the bottleneck is not just premature entropy collapse, but converting near-contact into goal-directed object transport."
     }
   ],
   "insights": [
@@ -346,7 +383,8 @@
     "A broad +10 Gaussian local-goal bonus destabilized value learning and worsened mean distance to 0.376.",
     "Sparse N_UPDATES=1 with long-ceiling early-stop instrumentation tied the 0.20 best success rate, but visual rollouts still lacked robust transport.",
     "Fully restoring exp10 shaping, LayerNorm critic, Q_MIN clamp, and N_UPDATES=3 on top of early-stop instrumentation regressed to 0.0 success.",
-    "Sparse N_UPDATES=2 also regressed to 0.0 success, suggesting the N_UPDATES=1 early-stop setup is the better current infrastructure anchor."
+    "Sparse N_UPDATES=2 also regressed to 0.0 success, suggesting the N_UPDATES=1 early-stop setup is the better current infrastructure anchor.",
+    "A MIN_ALPHA=0.02 entropy floor on the sparse N_UPDATES=1 early-stop baseline produced one 0.20 spot eval but final success still regressed to 0.0, so entropy preservation alone is insufficient."
   ],
   "failed_directions": [
     "AT_GOAL_BONUS 20 -> 5 while using N_UPDATES=4: regressed success_rate to 0.10 and produced approach/hover behavior rather than reliable transport.",
@@ -356,12 +394,14 @@
     "Capped block-goal progress bonus: improved mean distance but regressed success to 0.0 and produced near-misses.",
     "Broad Gaussian local-goal bonus: regressed success to 0.0, worsened mean distance to 0.376, and caused arm retraction.",
     "Full exp10 recipe on early-stop sparse infrastructure: regressed success to 0.0 and hit no-progress early stop after spot evals 0.20, 0.00, 0.00, 0.00.",
-    "Sparse N_UPDATES 1 -> 2 on early-stop infrastructure: regressed success to 0.0, produced all-zero spot evals, and raised critic loss late in the run."
+    "Sparse N_UPDATES 1 -> 2 on early-stop infrastructure: regressed success to 0.0, produced all-zero spot evals, and raised critic loss late in the run.",
+    "MIN_ALPHA=0.02 entropy floor on sparse N_UPDATES=1 early-stop baseline: produced a mid-run 0.20 spot eval but final success was 0.0 and renders still showed approach/hover without transport."
   ],
   "promising_directions": [
     "Restore exp10 settings, then address jerkiness with a smoother local final-placement reward instead of lowering the flat at-goal bonus.",
     "Ablate N_UPDATES=4 separately against N_UPDATES=3 only after returning the at-goal bonus to the metric-best value.",
     "Preserve the exp10 transport rewards and add more selective contact-acquisition shaping rather than weakening terminal or velocity transport incentives.",
-    "Use the sparse early-stop baseline with N_UPDATES=1 as the current infrastructure anchor and test isolated lightweight shaping or action-prior changes."
+    "Use the sparse early-stop baseline with N_UPDATES=1 as the current infrastructure anchor and test isolated lightweight shaping or action-prior changes.",
+    "If using the sparse early-stop anchor, prefer transport-specific near-contact push/action priors over pure entropy or replay-ratio changes."
   ]
 }

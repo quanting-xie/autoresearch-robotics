@@ -8,3 +8,16 @@ ed6deec	0.000000	-50.0	gripper now reaches table height adjacent to block; mean_
 df5741c	0.100000	-45.0	BREAKTHROUGH: ep1 shows gripper grasping block at goal-dot; first non-zero success	keep	recipe + 4-term shaping (grip + goal + vel + at-goal +20)
 54c03e5	0.100000	-45.0	tied at 0.10; ep1 gripper above-left of block but no clear grasp; no qualitative gain	discard	HER_K 4 -> 8
 945fe69	0.000000	-50.0	regressed to 0%; bigger net undertrained at fixed budget; critic loss 300-400 noisy	discard	HIDDEN_DIM 256 -> 512 (4x params, ~1.6M)
+6b5cfd7	0.200000	-40.5	NEW BEST 2/10 successes; mean_distance 0.147 best yet; critic loss stabilized 230-260; more consistent block-approach	keep	N_UPDATES 2 -> 3 (RR=3)
+6d9d2c9	0.000000	-50.0	regressed to 0%; critic loss climbing 247->344 at RR=4; buffer too narrow	discard	N_UPDATES 3 -> 4 (RR=4)
+7ee6df8	0.100000	-45.0	confounded (N_UPDATES=4 reapplied); critic loss dropped 10x to 24-27 (smoother); gripper consistently on block	discard	AT_GOAL_BONUS 20->5 + N_UPDATES 3->4 (per human feedback)
+9437de0	0.000000	-50.0	clean isolation: AT_GOAL=5 with RR=3; critic loss 6-16 cleanest yet; cliff IS load-bearing for metric	discard	AT_GOAL_BONUS 20->5 only (clean isolation per human)
+a78beb2	0.100000	-45.0	Gaussian peak +20 with smooth decay; ep0 lift-fail; ep1/ep2 push-engaged; cliff sharpness > smooth precision	discard	at-goal binary cliff -> Gaussian (peak 20, sigma=threshold)
+412d9d1	0.100000	-45.0	stronger goal-pull made block end further from goal on avg; recipe coefficients are coupled	discard	SHAPING_GOAL_COEF 5 -> 10
+8b89804	0.000000	-50.0	bigger batch slower -> 75k env steps + 222k updates; critic 487 (undertrained); same RR=4 failure mode	discard	BATCH_SIZE 256 -> 512
+2351ca3	0.000000	-50.0	lower LR slows critic convergence; loss 121->245 still climbing at end; undertrained	discard	LR_ACTOR=LR_CRITIC 3e-4 -> 1e-4
+1ade032	0.100000	-45.0	intermediate value gives intermediate result; sensitivity confirmed	discard	AT_GOAL_BONUS 20 -> 15 (sweet-spot search)
+e66d212	0.000000	-50.0	even +0-0.2/step action penalty disrupts the recipe; gripper-close action subtly weakened	discard	action L2 regularization (coef 0.05)
+bf1b9bb	0.000000	-50.0	cliff doubled destabilises; sharp peak at =20 confirmed; AT_GOAL has a unique optimum	discard	AT_GOAL_BONUS 20 -> 40 (upper-edge cliff search)
+b7559e5	0.000000	-50.0	fixed alpha killed exploration; mean_distance 0.358 worst yet; auto-alpha needed	discard	INIT_ALPHA 0.2->0.1, AUTO_ALPHA False (deterministic-like actor)
+84f7b2c	0.000000	-50.0	HER_K=8 at RR=3 also regresses; combination effect doesn't help	discard	HER_K 4 -> 8 at RR=3 (combination test)

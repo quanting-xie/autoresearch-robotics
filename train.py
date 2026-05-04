@@ -52,8 +52,8 @@ except ImportError:
 # replace with a completely different configuration scheme)
 
 # Policy architecture
-HIDDEN_DIM = 128            # hidden layer width (exp4: was 256; smaller net for faster grad steps)
-N_LAYERS = 2                # number of hidden layers (exp4: was 3)
+HIDDEN_DIM = 256            # hidden layer width
+N_LAYERS = 3                # number of hidden layers
 ACTIVATION = "relu"         # activation function: "relu", "tanh", "gelu"
 
 # SAC optimization
@@ -61,12 +61,12 @@ LR_ACTOR = 3e-4             # actor learning rate
 LR_CRITIC = 3e-4            # critic learning rate
 GAMMA = 0.98                # discount factor
 TAU = 0.005                 # soft target update rate
-INIT_ALPHA = 0.2            # initial entropy coefficient
-AUTO_ALPHA = True           # automatic entropy tuning
+INIT_ALPHA = 0.05           # entropy coefficient (exp5: low fixed; was 0.2)
+AUTO_ALPHA = False          # automatic entropy tuning (exp5: disabled; was True; auto-alpha started at exp(0)=1.0 and dominated actor loss within the 850-update budget)
 LR_ALPHA = 3e-4             # alpha learning rate (if AUTO_ALPHA)
 
 # Replay buffer
-BATCH_SIZE = 128            # minibatch size for updates (exp4: was 256; halved for faster grad steps)
+BATCH_SIZE = 256            # minibatch size for updates
 BUFFER_SIZE = 200_000       # replay buffer capacity
 
 # HER (Hindsight Experience Replay)
@@ -278,9 +278,9 @@ class ReplayBuffer:
             self._current_episode_start = self.ptr
 
     def _compute_reward(self, achieved_goal, desired_goal):
-        """Sparse reward: -1 if not at goal, 0 if at goal (distance < 0.05)."""
-        d = np.linalg.norm(achieved_goal - desired_goal, axis=-1)
-        return -(d > 0.05).astype(np.float32)
+        """Dense reward (exp5): -L2 distance to goal. Pairs with low fixed alpha so
+        the actor optimizes Q from update 1 with a clean direction signal."""
+        return -np.linalg.norm(achieved_goal - desired_goal, axis=-1).astype(np.float32)
 
     def sample(self, batch_size, device, obs_normalizer=None,
                use_her=USE_HER, her_k=HER_K):
@@ -349,6 +349,10 @@ class ReplayBuffer:
                 dones[i] = float(
                     np.linalg.norm(next_ag - new_goal) < 0.05
                 )
+
+        # Dense reward override (exp5): consistent dense signal for ALL transitions.
+        next_ags = self.next_achieved_goals[indices]
+        rewards = -np.linalg.norm(next_ags - desired_goals, axis=-1, keepdims=True).astype(np.float32)
 
         # Flatten observations: concat obs + desired_goal
         flat_obs = np.concatenate([obs, desired_goals], axis=-1)

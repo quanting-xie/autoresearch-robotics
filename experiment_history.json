@@ -1,7 +1,7 @@
 {
   "best_commit": "9630464",
   "best_success_rate": 0.0,
-  "total_experiments": 3,
+  "total_experiments": 4,
   "experiments": [
     {
       "id": 1,
@@ -101,11 +101,48 @@
       "vlm_suggestions": [
         "Root cause: too few grad updates (838) for SAC to converge. Auto-alpha starts at exp(0)=1.0 so entropy term DOMINATES actor loss in early training, regardless of reward signal quality.",
         "Fix: attack update throughput directly. Smaller net (128x2) + smaller batch (128) should give ~3-5x more updates in 10s.",
-        "Dense reward is plausibly correct but insufficient alone — keep as a layered change for after smaller-net breaks 0%."
+        "Dense reward is plausibly correct but insufficient alone \u2014 keep as a layered change for after smaller-net breaks 0%."
       ],
       "status": "discard",
       "hypothesis_confirmed": false,
       "lesson_learned": "Reward signal quality doesn't help when there are too few gradient updates for SAC to converge. With auto_alpha starting at alpha=1.0 and FetchReach Q-values O(-10), the entropy regularization term dominates the Q term in actor_loss for the first several thousand updates. Until alpha anneals down (which itself takes updates), the actor is being pushed toward random actions regardless of how clean the Q-target is. The 838-update budget is fundamentally pre-convergence."
+    },
+    {
+      "id": 4,
+      "commit": "0fa95bd",
+      "timestamp": "2026-05-03T21:51:26",
+      "agent": "opus-4.7",
+      "description": "Shrink net 256x3 -> 128x2 (~13x fewer params) and halve batch 256 -> 128 to multiply grad-step throughput.",
+      "hypothesis": "Three previous 0% experiments suggest gradient-step count is the binding constraint. Shrinking the actor+critic and the batch should give 3-5x more updates within 10s, expected to break 0% success_rate.",
+      "changes_made": [
+        "HIDDEN_DIM: 256 -> 128",
+        "N_LAYERS: 3 -> 2",
+        "BATCH_SIZE: 256 -> 128"
+      ],
+      "metrics": {
+        "success_rate": 0.0,
+        "mean_reward": -50.0,
+        "mean_distance": 0.5233120285633246,
+        "total_steps": 1928,
+        "total_episodes": 38,
+        "total_updates": 928,
+        "peak_vram_mb": 18.76220703125
+      },
+      "vlm_feedback_summary": "Different end-pose pattern (ep0 arm now EXTENDS outward instead of collapsing inward) but still no goal-tracking. mean_distance 0.52 (worse than exp2/3, in noise band). VRAM dropped 27->19 MB confirming smaller net, but total_updates only rose from 853 to 928 (+9%), far below predicted 3-5x.",
+      "vlm_failure_modes": [
+        "still no goal-tracking",
+        "ep0 shows new failure mode: arm extends past goal (overshooting baseline rest pose)",
+        "ep1, ep2 still poke down at table center"
+      ],
+      "vlm_suggestions": [
+        "Architectural shrinking is dead end on this setup — Python overhead dominates per-update cost, not GPU FLOPs.",
+        "Total updates appears capped at ~900-950 in 10s regardless of net size.",
+        "Pivot strategy: make each update count more. Attack the actor signal-to-noise problem with low fixed alpha + dense reward.",
+        "AUTO_ALPHA=False + INIT_ALPHA=0.05 + dense reward shaping is the next attack."
+      ],
+      "status": "discard",
+      "hypothesis_confirmed": false,
+      "lesson_learned": "GPU FLOPs are NOT the dominant cost per gradient step on this setup. Shrinking the net 13x and the batch 2x only yielded +9% updates per second. The bottleneck is Python overhead in the per-step loop: HER's per-sample Python for-loop in buffer.sample(), per-step action sampling with .cpu().numpy() round-trips, buffer.add() episode tracking. Total grad updates per 10s is roughly capped at ~900-950 regardless of architecture choices. To make progress, optimize per-update QUALITY not quantity."
     }
   ],
   "insights": [
@@ -115,13 +152,13 @@
   ],
   "failed_directions": [
     "STEPS_BEFORE_LEARNING 1000 -> 100 alone (exp2): only +4% updates, 0% success_rate. The lever was wrong; not the warmup but the per-update cost.",
-    "Dense reward shaping alone (exp3): 0% success_rate; behavior visually unchanged. Reward signal quality cannot compensate for too-few gradient updates. Auto-alpha at init=1.0 means entropy term dominates actor loss until alpha anneals \u2014 and that itself takes more updates than 838."
+    "Dense reward shaping alone (exp3): 0% success_rate; behavior visually unchanged. Reward signal quality cannot compensate for too-few gradient updates. Auto-alpha at init=1.0 means entropy term dominates actor loss until alpha anneals \u2014 and that itself takes more updates than 838.",
+    "Smaller net (128x2) + smaller batch (128) (exp4): only +9% updates, 0% success_rate. GPU FLOPs are not the bottleneck; Python overhead in per-step loop is. Architectural shrinking is a dead end here."
   ],
   "promising_directions": [
-    "Smaller/faster network (e.g. 128x2) + smaller batch (128) \u2014 directly attacks the per-update GPU cost; expecting 3-5x more updates in 10s",
-    "Raise UTD (N_UPDATES) AFTER smaller net \u2014 more grad signal per env step",
-    "Re-introduce dense reward AFTER smaller net unlocks more updates \u2014 the two should compound",
-    "Lower INIT_ALPHA / disable auto-alpha \u2014 bypass the early-training entropy domination",
-    "n-step returns (n=3-5) on the critic"
+    "BUNDLE: low fixed alpha (AUTO_ALPHA=False, INIT_ALPHA=0.05) + dense reward \u2014 attacks actor signal-to-noise directly. Synergistic.",
+    "If bundle works: ablate to find minimum (low alpha alone? dense reward alone with low alpha?)",
+    "If bundle fails: pivot to TD3 (deterministic, no entropy term, better fit for FetchReach + HER)",
+    "Behavioral cloning bootstrap: warmup actor with supervised regression to (goal - achieved) direction"
   ]
 }

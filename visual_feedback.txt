@@ -1,34 +1,42 @@
-Experiment 3 — visual analysis (dense reward shaping in replay buffer, success_rate=0.00)
+Experiment 4 — visual analysis (HIDDEN_DIM 256->128, N_LAYERS 3->2, BATCH 256->128, success_rate=0.00)
 
 Frames: ./renders/ep{0,1,2}_{start,mid,end}.png
 
 Behavior:
-- ep0: gripper starts above the goal (red dot near table edge below it). Mid: arm has retracted to the LEFT and DOWN — gripper poking into the side/back of the base. End: same retracted pose, goal floating to the right unreached.
-- ep1: similar to ep0; gripper ends collapsed near the table edge with goal sitting on the table surface ahead.
-- ep2: gripper poking down at the table center, goal floating slightly to its right and up.
+- ep0: gripper ends extended OUTWARD to the right, hovering over the far side of the table. Goal (red dot) is BEHIND it at the table edge near the base. Different from exp1-3 where the arm collapsed inward. This time the arm extended past the goal.
+- ep1: gripper poking down at table center, goal floating up-right.
+- ep2: similar to ep1 — gripper at table center pointing down, goal slightly to the right.
 
-Key observation: behavior is INDISTINGUISHABLE from exp1 baseline. No goal tracking. Same "arm collapses or retracts to a default pose" failure mode. Dense reward did not change the policy in any visible way.
+Comparison:
+- mean_distance: 0.52 (worse than exp 2's 0.40 and exp 3's 0.41, but in noise band).
+- total_updates: 928 vs 853 baseline = ONLY +9% speedup. Predicted 3-5x.
+- VRAM: 18.8 MB vs 27.2 MB baseline (-31%) — confirms net is smaller, but speedup didn't materialize.
 
-Comparison vs exp1 (renders_best — same since both 0%):
-- mean_distance 0.41 (exp3) vs 0.61 (exp1) vs 0.40 (exp2). Slight improvement but in the noise band of "where untrained policy happens to land." Not goal-tracking.
-- total_updates 838 (exp3) vs 853 (exp1) vs 890 (exp2). Same regime.
+Root-cause update — the GPU FLOPs theory was wrong:
+- Smaller net + smaller batch should give multiplicative speedup IF GPU FLOPs are dominant.
+- Actual speedup +9% means GPU work is NOT the dominant cost per gradient step.
+- Likely culprits (in approximate priority): (a) Python overhead in the per-step main loop, (b) HER's per-sample Python for-loop in buffer.sample() — this is O(batch_size) Python iterations per gradient step, (c) per-step action sampling with .cpu().numpy() round-trips, (d) buffer.add() with its episode tracking.
 
-Why dense reward didn't help — root-cause hypothesis:
-- Within 838 gradient updates, auto-alpha is still in early-init regime. INIT_ALPHA's actual init is log_alpha=0 -> alpha=1.0. SAC's actor_loss = (alpha * log_probs - Q).mean(). With alpha=1.0 and FetchReach Q-values around -1 to -50, entropy regularization is COMPARABLE to or DOMINATES the Q-term in early training. The actor is being pushed to maximize entropy (random-ish actions) more than to maximize Q.
-- Dense vs sparse reward changes the *quality* of the Q-signal but not the *quantity* of gradient steps. With ~840 updates the Q-network hasn't learned much regardless, AND alpha hasn't annealed down to let the (now-cleaner) Q-signal dominate the actor loss.
-- Conclusion: the binding bottleneck is NUMBER OF GRADIENT UPDATES, not signal quality. Need to attack throughput directly.
+So multiplying gradient updates is HARD on this setup. We probably get ~850-950 updates per 10s no matter what we do at the architectural level. To make progress we must make each update COUNT MORE.
 
-Highest-leverage attack:
-- HIDDEN_DIM 256 -> 128 and N_LAYERS 3 -> 2. Reduces actor+critic from ~410k -> ~30k params (~13x smaller).
-- BATCH_SIZE 256 -> 128. Halves per-update FLOPs.
-- Combined expected speedup: 3-5x grad steps per second within the 10s budget. Goes from ~850 updates to ~2500-4000 updates. THIS is a different training regime.
-- Risk: smaller net might underfit. But for a 13-dim obs / 4-dim action env, 128x2 is still well-specced.
+What makes an update count more?
+1. Better Q-target signal (dense reward) — exp 3 tried this alone, still 0%.
+2. Less destructive entropy regularization. With AUTO_ALPHA=True, log_alpha=0 init -> alpha=1.0. SAC's actor_loss = (alpha*log_probs - Q).mean(). For FetchReach with sparse Q in {-50, ..., 0} and log_probs around 0 or so, alpha=1.0 makes the entropy term comparable in magnitude to the Q term, then alpha SLOWLY anneals. 850 updates is not enough for it to anneal.
+3. Combine #1 and #2: dense reward gives Q a clean direction, low fixed alpha lets actor follow Q immediately.
 
-Decision: DISCARD exp 3 (success_rate equal to baseline at 0%). Revert train.py. Keep dense reward as a "promising but insufficient alone" item. Exp 4 attacks update throughput directly via smaller net.
+Decision: DISCARD exp 4 (success_rate equal to baseline). Revert net+batch.
 
-Plan exp 4:
-- HIDDEN_DIM = 128
-- N_LAYERS = 2
-- BATCH_SIZE = 128
-- Everything else baseline. Sparse reward retained for clean attribution of the architectural change.
-- Predict: total_updates 850 -> 2500+. If this alone breaks 0%, the bottleneck is confirmed as throughput. If still 0%, exp 5 layers dense reward + UTD>1 on this smaller-net base.
+GO RADICAL plan for exp 5 — attack the actor signal-to-noise issue head-on:
+- AUTO_ALPHA = False (no auto-tuning, fix alpha at start)
+- INIT_ALPHA = 0.05 (very low entropy regularization; actor primarily optimizes Q)
+- Dense reward shaping in replay buffer (-||achieved - desired||) — re-introduce from exp 3
+- Keep everything else baseline (256x3, batch 256, sparse env reward unchanged)
+
+Why bundle two changes:
+- Dense reward alone (exp 3): didn't help because alpha=1.0 entropy dominated Q signal.
+- Low fixed alpha alone: would bypass entropy domination, but with sparse reward Q-signal is mostly -1 everywhere except the rare success state, so policy would converge to "anything" rather than "toward goal".
+- Combined: actor sees a clean Q gradient (dense reward) AND that gradient actually drives weight updates (low alpha). Synergistic by construction.
+
+Predict: success_rate > 0% (first non-zero of the run). If still 0%, the bottleneck is even deeper — probably need a fundamentally different algorithm (TD3 or DDPG, no entropy) or behavioral-cloning bootstrap.
+
+If exp 5 unlocks success, exp 6 ablates: keep low alpha but revert dense reward. If still works, dense reward is unnecessary. If reverts to 0%, both were needed.

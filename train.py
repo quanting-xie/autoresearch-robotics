@@ -278,10 +278,9 @@ class ReplayBuffer:
             self._current_episode_start = self.ptr
 
     def _compute_reward(self, achieved_goal, desired_goal):
-        """Dense reward (exp3): -L2 distance to goal. Provides nonzero gradient signal
-        on every transition, vs sparse {-1, 0} which is non-zero only at the goal.
-        Eval reward is unaffected (computed by env in evaluate.py)."""
-        return -np.linalg.norm(achieved_goal - desired_goal, axis=-1).astype(np.float32)
+        """Sparse reward: -1 if not at goal, 0 if at goal (distance < 0.05)."""
+        d = np.linalg.norm(achieved_goal - desired_goal, axis=-1)
+        return -(d > 0.05).astype(np.float32)
 
     def sample(self, batch_size, device, obs_normalizer=None,
                use_her=USE_HER, her_k=HER_K):
@@ -350,12 +349,6 @@ class ReplayBuffer:
                 dones[i] = float(
                     np.linalg.norm(next_ag - new_goal) < 0.05
                 )
-
-        # Dense reward override (exp3): for ALL sampled transitions, replace the
-        # stored sparse env reward with -||next_achieved - (post-HER) desired||.
-        # This guarantees consistent dense signal regardless of HER fraction.
-        next_ags = self.next_achieved_goals[indices]
-        rewards = -np.linalg.norm(next_ags - desired_goals, axis=-1, keepdims=True).astype(np.float32)
 
         # Flatten observations: concat obs + desired_goal
         flat_obs = np.concatenate([obs, desired_goals], axis=-1)

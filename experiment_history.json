@@ -1,7 +1,7 @@
 {
   "best_commit": "9630464",
   "best_success_rate": 0.0,
-  "total_experiments": 2,
+  "total_experiments": 3,
   "experiments": [
     {
       "id": 1,
@@ -61,7 +61,7 @@
         "still no goal-tracking",
         "arm collapses into table (ep0, ep1)",
         "new failure: arm retracts upward into vertical posture (ep2)",
-        "policy direction is inconsistent across episodes — different default poses for similar starts"
+        "policy direction is inconsistent across episodes \u2014 different default poses for similar starts"
       ],
       "vlm_suggestions": [
         "STEPS_BEFORE_LEARNING change is neutral for total_updates; don't pursue alone",
@@ -71,19 +71,57 @@
       "status": "discard",
       "hypothesis_confirmed": false,
       "lesson_learned": "GPU throughput per gradient update is the binding constraint, not env-step count. Random pre-learning rollouts are essentially free (no sample, no grad), so reducing them barely affects total_updates (853 -> 890, +4.3%). Total env steps DROP (1853 -> 990) because once learning starts, every step pays for action sampling + grad update, slowing env-step rate to ~90 steps/sec. To get more updates in 10s, need faster grad steps (smaller net/batch) OR better sample efficiency per step (dense reward, n-step returns, REDQ/DroQ)."
+    },
+    {
+      "id": 3,
+      "commit": "f7d61cf",
+      "timestamp": "2026-05-03T21:47:48",
+      "agent": "opus-4.7",
+      "description": "Dense reward shaping in replay buffer: replace sparse {-1, 0} per-transition reward with -L2 distance(next_achieved, post-HER desired). Eval reward (env-defined) unchanged.",
+      "hypothesis": "Dense reward gives nonzero gradient signal on every transition (vs sparse, which is informative only within 5cm of goal). Expected first non-zero success_rate of the run.",
+      "changes_made": [
+        "_compute_reward: -1/0 sparse -> -||achieved - desired|| dense",
+        "sample(): override stored env reward with dense reward computed from buffer next_achieved_goals + post-HER desired_goals (consistent regardless of HER fraction)"
+      ],
+      "metrics": {
+        "success_rate": 0.0,
+        "mean_reward": -50.0,
+        "mean_distance": 0.41027670487624357,
+        "total_steps": 1838,
+        "total_episodes": 36,
+        "total_updates": 838,
+        "peak_vram_mb": 27.15185546875
+      },
+      "vlm_feedback_summary": "Behavior visually indistinguishable from baseline. Same 'arm collapses or retracts to default pose, ignores goal' failure across all 3 episodes. Dense reward changed signal quality but not training outcome.",
+      "vlm_failure_modes": [
+        "still no goal-tracking (same as exp1)",
+        "arm retracts to LEFT/DOWN default pose regardless of goal location",
+        "deterministic eval policy outputs near-fixed action regardless of obs"
+      ],
+      "vlm_suggestions": [
+        "Root cause: too few grad updates (838) for SAC to converge. Auto-alpha starts at exp(0)=1.0 so entropy term DOMINATES actor loss in early training, regardless of reward signal quality.",
+        "Fix: attack update throughput directly. Smaller net (128x2) + smaller batch (128) should give ~3-5x more updates in 10s.",
+        "Dense reward is plausibly correct but insufficient alone — keep as a layered change for after smaller-net breaks 0%."
+      ],
+      "status": "discard",
+      "hypothesis_confirmed": false,
+      "lesson_learned": "Reward signal quality doesn't help when there are too few gradient updates for SAC to converge. With auto_alpha starting at alpha=1.0 and FetchReach Q-values O(-10), the entropy regularization term dominates the Q term in actor_loss for the first several thousand updates. Until alpha anneals down (which itself takes updates), the actor is being pushed toward random actions regardless of how clean the Q-target is. The 838-update budget is fundamentally pre-convergence."
     }
   ],
   "insights": [
     "Gradient-step budget on a 10s wall-clock is ~850-900 updates regardless of STEPS_BEFORE_LEARNING. The binding constraint is GPU throughput per grad step (~85-90 upd/s), NOT env-step count. Random pre-learning steps are free; learning steps cost ~10ms each.",
-    "Total_steps is misleading on this setup — exp1 had 1853 total steps but only 853 grad updates because the first 1000 were free random rollouts. Don't optimize total_steps; optimize total_updates."
+    "Total_steps is misleading on this setup \u2014 exp1 had 1853 total steps but only 853 grad updates because the first 1000 were free random rollouts. Don't optimize total_steps; optimize total_updates.",
+    "Reward signal quality (sparse vs dense) doesn't move the needle when the gradient-step budget is too small. Auto-alpha starts at exp(0)=1.0 and the entropy term dominates the Q-term in actor_loss for the first ~1000-2000 updates regardless of reward shape. Need to attack #updates first (smaller net) or bypass entropy domination (lower/fixed alpha)."
   ],
   "failed_directions": [
-    "STEPS_BEFORE_LEARNING 1000 -> 100 alone (exp2): only +4% updates, 0% success_rate. The lever was wrong; not the warmup but the per-update cost."
+    "STEPS_BEFORE_LEARNING 1000 -> 100 alone (exp2): only +4% updates, 0% success_rate. The lever was wrong; not the warmup but the per-update cost.",
+    "Dense reward shaping alone (exp3): 0% success_rate; behavior visually unchanged. Reward signal quality cannot compensate for too-few gradient updates. Auto-alpha at init=1.0 means entropy term dominates actor loss until alpha anneals \u2014 and that itself takes more updates than 838."
   ],
   "promising_directions": [
-    "Dense reward shaping in replay buffer (-distance instead of sparse {-1, 0}) — biggest expected lift per literature for goal-conditioned tasks",
-    "Smaller/faster network (e.g. 128x2) — more grad steps per second within the same 10s budget",
-    "Raise UTD (N_UPDATES) — more grad signal per env step, may need DroQ-style dropout/LayerNorm if Q-values diverge",
-    "n-step returns (n=3-5) on the critic for stronger value targets given dense reward"
+    "Smaller/faster network (e.g. 128x2) + smaller batch (128) \u2014 directly attacks the per-update GPU cost; expecting 3-5x more updates in 10s",
+    "Raise UTD (N_UPDATES) AFTER smaller net \u2014 more grad signal per env step",
+    "Re-introduce dense reward AFTER smaller net unlocks more updates \u2014 the two should compound",
+    "Lower INIT_ALPHA / disable auto-alpha \u2014 bypass the early-training entropy domination",
+    "n-step returns (n=3-5) on the critic"
   ]
 }

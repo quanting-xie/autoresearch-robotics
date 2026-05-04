@@ -1,32 +1,34 @@
-Experiment 2 — visual analysis (STEPS_BEFORE_LEARNING 1000 -> 100, success_rate=0.00)
+Experiment 3 — visual analysis (dense reward shaping in replay buffer, success_rate=0.00)
 
 Frames: ./renders/ep{0,1,2}_{start,mid,end}.png
 
 Behavior:
-- ep0: gripper starts above and to the right (~10cm from goal floating to its left). Mid: arm has rotated downward and the gripper is poking at the table top, bypassing the goal entirely. End: same — frozen poking at the table.
-- ep1: same default starting pose; ends with gripper poking near the table edge, goal floating to its left.
-- ep2: a clearly DIFFERENT failure mode from exp 1 — arm has retracted way up and to the left into a tall vertical posture, gripper points down at the column. Goal floats far below to the right.
+- ep0: gripper starts above the goal (red dot near table edge below it). Mid: arm has retracted to the LEFT and DOWN — gripper poking into the side/back of the base. End: same retracted pose, goal floating to the right unreached.
+- ep1: similar to ep0; gripper ends collapsed near the table edge with goal sitting on the table surface ahead.
+- ep2: gripper poking down at the table center, goal floating slightly to its right and up.
 
-Comparison with exp 1 (best frames at ./renders_best — same as exp1 because both 0%):
-- mean_distance dropped 0.61 -> 0.40 (-34%). Robot is on average ending up slightly closer.
-- The endpoint poses are not clearly better — they just happen to land in a region of state space that is closer to the typical goal distribution. There is still no goal-tracking behavior across episodes.
-- ep2 shows a NEW failure mode (retract upward) not seen in exp1, suggesting the policy has learned *some* directional behavior but it's still wrong direction relative to the goal.
+Key observation: behavior is INDISTINGUISHABLE from exp1 baseline. No goal tracking. Same "arm collapses or retracts to a default pose" failure mode. Dense reward did not change the policy in any visible way.
 
-Hypothesis (about updates) was REFUTED:
-- Predicted: STEPS_BEFORE_LEARNING 1000 -> 100 would roughly double total_updates within the 10s budget.
-- Actual: total_updates went 853 -> 890 (+4.3%). Total env steps DROPPED 1853 -> 990 (-47%).
-- Lesson: the bottleneck is GPU throughput per gradient update, not env-step count. Pre-learning random rollouts are FREE (no GPU sampling, no grad), so they inflate total_steps but don't compete with the gradient budget. Once learning starts, every env step pays for action sampling AND a gradient update, so grad steps per second is the binding constraint at ~85-90 upd/s on this hardware.
+Comparison vs exp1 (renders_best — same since both 0%):
+- mean_distance 0.41 (exp3) vs 0.61 (exp1) vs 0.40 (exp2). Slight improvement but in the noise band of "where untrained policy happens to land." Not goal-tracking.
+- total_updates 838 (exp3) vs 853 (exp1) vs 890 (exp2). Same regime.
 
-Implications for next experiments:
-- Lowering STEPS_BEFORE_LEARNING is essentially neutral for total_updates. Don't expect it alone to unlock performance.
-- To get more gradient steps in 10s, need either: (a) faster gradient steps (smaller net, smaller batch), or (b) more sample efficiency per gradient step (dense reward, n-step returns, REDQ/DroQ ensemble for stable high UTD).
-- The strongest single lever per the literature for goal-conditioned tasks is DENSE REWARD SHAPING. Replacing the sparse {-1,0} reward in the HER buffer with -||achieved-desired|| gives nonzero gradient signal on every transition, drastically improving signal-to-noise per update.
+Why dense reward didn't help — root-cause hypothesis:
+- Within 838 gradient updates, auto-alpha is still in early-init regime. INIT_ALPHA's actual init is log_alpha=0 -> alpha=1.0. SAC's actor_loss = (alpha * log_probs - Q).mean(). With alpha=1.0 and FetchReach Q-values around -1 to -50, entropy regularization is COMPARABLE to or DOMINATES the Q-term in early training. The actor is being pushed to maximize entropy (random-ish actions) more than to maximize Q.
+- Dense vs sparse reward changes the *quality* of the Q-signal but not the *quantity* of gradient steps. With ~840 updates the Q-network hasn't learned much regardless, AND alpha hasn't annealed down to let the (now-cleaner) Q-signal dominate the actor loss.
+- Conclusion: the binding bottleneck is NUMBER OF GRADIENT UPDATES, not signal quality. Need to attack throughput directly.
 
-Decision: DISCARD exp 2 (success_rate equal to baseline at 0%). Revert train.py.
+Highest-leverage attack:
+- HIDDEN_DIM 256 -> 128 and N_LAYERS 3 -> 2. Reduces actor+critic from ~410k -> ~30k params (~13x smaller).
+- BATCH_SIZE 256 -> 128. Halves per-update FLOPs.
+- Combined expected speedup: 3-5x grad steps per second within the 10s budget. Goes from ~850 updates to ~2500-4000 updates. THIS is a different training regime.
+- Risk: smaller net might underfit. But for a 13-dim obs / 4-dim action env, 128x2 is still well-specced.
 
-Plan exp 3:
-- Revert STEPS_BEFORE_LEARNING to 1000.
-- Modify ReplayBuffer._compute_reward to return -distance (continuous negative reward proportional to distance to goal), instead of -1 if dist > 0.05 else 0.
-- This affects both the recomputed HER rewards and (because the env's stored reward is overwritten in HER... wait, actually no — sparse stored env reward is kept for non-HER samples).
-- Cleaner approach: shape ALL rewards in the replay buffer (both HER-relabeled and originals) to -distance. The eval reward is computed by env, unaffected.
-- Predict: if exp 3 gets >0% success, dense reward is the dominant lever. Then exp 4 can layer UTD>1 or n-step returns.
+Decision: DISCARD exp 3 (success_rate equal to baseline at 0%). Revert train.py. Keep dense reward as a "promising but insufficient alone" item. Exp 4 attacks update throughput directly via smaller net.
+
+Plan exp 4:
+- HIDDEN_DIM = 128
+- N_LAYERS = 2
+- BATCH_SIZE = 128
+- Everything else baseline. Sparse reward retained for clean attribution of the architectural change.
+- Predict: total_updates 850 -> 2500+. If this alone breaks 0%, the bottleneck is confirmed as throughput. If still 0%, exp 5 layers dense reward + UTD>1 on this smaller-net base.

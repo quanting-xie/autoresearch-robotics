@@ -1,3 +1,4 @@
 commit	success_rate	mean_reward	vlm_summary	status	description
 9630464	0.000000	-50.0	robot ignores goal, arm collapses into table	keep	baseline SAC+HER (unmodified)
 a2c73ad	0.000000	-50.0	still no goal-tracking; arm collapses or retracts upward	discard	STEPS_BEFORE_LEARNING 1000->100 (only +4% updates; bottleneck was GPU per-update, not warmup)
+f7d61cf	0.000000	-50.0	visually identical to baseline; dense reward did not change policy	discard	dense reward shaping (-distance) in replay buffer (signal quality didn't beat too-few-updates)

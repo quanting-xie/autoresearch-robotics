@@ -1,7 +1,7 @@
 {
   "best_commit": "ed69e5e",
   "best_success_rate": 0.1,
-  "total_experiments": 4,
+  "total_experiments": 5,
   "experiments": [
     {
       "id": 1,
@@ -145,6 +145,44 @@
       "status": "discard",
       "hypothesis_confirmed": false,
       "lesson_learned": "Dense reward IS the right idea for breaking signal starvation, but it cannot work alone with auto-alpha: the bigger Q magnitude makes auto-alpha collapse alpha to zero, killing the very exploration that would let the policy discover manipulation. Auto-alpha effectively re-balances entropy against Q magnitude, so reward-shape changes have first-order effects on the equilibrium alpha. Solution: pin alpha (AUTO_ALPHA=False) so reward shape and exploration stay decoupled."
+    },
+    {
+      "id": 5,
+      "commit": "767d033",
+      "timestamp": "2026-05-03T21:54:30",
+      "agent": "opus-4.7",
+      "description": "组合实验:dense 训练奖励 + 固定 alpha=0.2(AUTO_ALPHA=False)。同时攻击实验 4 暴露的两个症结 — 信号匮乏(用 dense reward 解决)和 auto-alpha 在 dense reward 下崩到 0(用固定 alpha 解决)。eval 仍然走 evaluate.py 的稀疏奖励,success_rate 指标不受影响。",
+      "hypothesis": "实验 1-4 的累积分析指出:HER 在方块不动时退化为 reach,稀疏奖励无梯度,而 auto-alpha 在 dense 奖励下被驱到 0。把这两个问题用 dense reward + 固定 alpha=0.2 同时解决:dense 提供持续梯度,固定 alpha 保证持续随机探索。预期成功率从 0.10 提升到 0.20-0.60,critic_loss 应当稳定在 0.1 附近,alpha 全程 0.2。",
+      "changes_made": [
+        "AUTO_ALPHA = False(原来 True)",
+        "ReplayBuffer._compute_reward 改为返回 -d(原来 -(d>0.05))",
+        "训练循环 buffer.add 的 reward 改为 -||next_achieved_goal - desired_goal||(原来是 env 稀疏 reward)"
+      ],
+      "metrics": {
+        "success_rate": 0.1,
+        "mean_reward": -45.0,
+        "mean_distance": 0.23512108908133125,
+        "total_steps": 252638,
+        "total_episodes": 5052,
+        "total_updates": 251638,
+        "peak_vram_mb": 27.39892578125
+      },
+      "vlm_feedback_summary": "假设部分成立但没有突破:训练完全稳定(alpha 全程 0.200,critic_loss ~0.12,actor_loss ~-1.0,无发散),但成功率只与基线相同(0.10)。视觉行为也与基线一样 — 夹爪一致地移到方块附近,从不闭合也从不举起。",
+      "vlm_failure_modes": [
+        "exploration_structure_inadequate:i.i.d 高斯噪声(即使 alpha=0.2 不算小)在 4D 动作空间内难以产生协调的'夹爪到位 + 闭合 + 上举'多步序列",
+        "policy_locks_into_reach:dense reward 让 critic 收敛得很干净,但 critic 学到的最优策略在没有任何抓取经验的情况下就是'最小化 grip-cube 距离',mean action 收敛到悬停",
+        "her_signal_unchanged:整个 buffer 中 achieved_goal 几乎不动,HER 重标注的 future goal 仍然是方块起点附近的小簇,manipulation 信号永不出现",
+        "mean_distance_marginally_worse:0.235 vs 基线 0.214,可能是 dense reward 让 policy 更稳定地'悬停'而不像基线那样有时碰巧把方块挪几毫米"
+      ],
+      "vlm_suggestions": [
+        "下一步(实验 6):抓取偏置 warmup — STEPS_BEFORE_LEARNING 阶段强制 action[3]=-1(夹爪闭合),并把 warmup 从 1000 提升到 5000。让随机手臂运动配合闭合夹爪,提高 buffer 中方块移动事件密度",
+        "若仍不行:OU 时间相关探索噪声替代 i.i.d. 高斯,产生持续性的夹爪指令",
+        "或:多分量 dense reward(再加上 -lambda * ||grip-cube|| 项)直接塑造夹爪靠近方块的行为",
+        "如果以上都不行:回到 dense + 固定 alpha 这一基础上,叠加 UTD>1 提升每步学习量"
+      ],
+      "status": "discard",
+      "hypothesis_confirmed": false,
+      "lesson_learned": "干净地证明了一件重要事:在这个任务上,信号(dense reward)和探索量(固定 alpha)同时修复后,仍然无法突破基线 0.10。问题不是不够的随机噪声,也不是不够的训练信号 — 而是探索的*结构*。i.i.d 高斯噪声在 4D 动作空间不会自然产生'多步协调的抓取序列'(夹爪到位 + 闭合 + 上举)。下一实验必须改变探索结构本身,而不是音量。最直接的干预是 warmup 强制夹爪闭合 — 让随机手臂运动至少有非零概率产生抓取事件。"
     }
   ],
   "insights": [
@@ -155,19 +193,22 @@
     "Optimization-stability tweaks (LN-only) cannot rescue this run as long as exploration is dead; the bottleneck order is exploration > optimization.",
     "CODEBASE CONVENTION: SACAgent.target_entropy is the NEGATIVE of H_target (used in alpha_loss = -log_alpha * (log_prob + target_entropy)). target_entropy = -4 means H_target = 4. To increase exploration, make target_entropy MORE negative (e.g., -8).",
     "Without any exploration regularization (alpha near 0), the critic Q-values can diverge to ~50 \u2014 entropy bonus also acts as a soft constraint on Q-magnitude.",
-    "AUTO-ALPHA + DENSE REWARD INTERACTION: bigger Q magnitude from dense reward causes auto-alpha to drive alpha all the way to 0. So any reward-shape change implicitly retunes the exploration equilibrium. Pinning alpha (AUTO_ALPHA=False) decouples them."
+    "AUTO-ALPHA + DENSE REWARD INTERACTION: bigger Q magnitude from dense reward causes auto-alpha to drive alpha all the way to 0. So any reward-shape change implicitly retunes the exploration equilibrium. Pinning alpha (AUTO_ALPHA=False) decouples them.",
+    "实验 5 关键洞察:dense reward + 固定 alpha=0.2 让训练完全稳定(critic_loss ~0.12,alpha 全程 0.2,无发散),但成功率仍卡在 0.10 — 等于基线。证明优化质量和探索量都不是当前瓶颈。瓶颈是探索结构:i.i.d 高斯噪声在 4D 动作空间无法产生协调的多步抓取序列。要突破必须改变探索结构本身(强制夹爪闭合 / OU 噪声 / 多分量奖励塑形等)。"
   ],
   "failed_directions": [
     "LayerNorm in BOTH actor + critic with AUTO_ALPHA on. Hurts reach, kills alpha, slows throughput. May still be worth trying critic-only LN once exploration is fixed.",
     "Halving target_entropy magnitude (target_entropy = -action_dim/2). Counter-productive in this code's sign convention: lowers H_target, alpha collapses further, critic diverges. To go the other way, use -action_dim*2.",
-    "Dense reward ALONE (with AUTO_ALPHA still on). Alpha collapses to 0, deterministic policy never bumps cube, dense gradient is flat per episode. Need to pin alpha to make dense reward work."
+    "Dense reward ALONE (with AUTO_ALPHA still on). Alpha collapses to 0, deterministic policy never bumps cube, dense gradient is flat per episode. Need to pin alpha to make dense reward work.",
+    "Dense reward + 固定 alpha=0.2(AUTO_ALPHA=False)组合。训练干净稳定但成功率只到 0.10(等于基线)。问题不在信号或探索量,而在探索结构 — 单纯的 i.i.d 高斯噪声在 50 步 episode 内无法发现协调的抓取多步序列。"
   ],
   "promising_directions": [
-    "DENSE REWARD + FIXED ALPHA = 0.2 (next): combine the right signal (dense) with persistent exploration (fixed alpha). Two changes, root-cause-aligned.",
-    "Gripper-biased OU exploration noise during warmup (if dense+fixed-alpha still falls short)",
-    "UTD > 1 (after the signal+exploration combo works)",
-    "MHER(lambda) for n-step HER without bias",
-    "Critic-only LN (revisit once exploration works)",
-    "If revisiting auto-alpha: target_entropy = -action_dim*2 = -8 (CORRECT direction this time)"
+    "下一步(实验 6):抓取偏置 warmup — 在 STEPS_BEFORE_LEARNING 阶段强制 action[3]=-1(夹爪闭合),并把 warmup 提到 5000 步。直接攻击探索结构问题",
+    "OU 时间相关探索噪声(替代 i.i.d. 高斯,产生持续性夹爪指令)",
+    "多分量 dense reward:加 -lambda * ||grip-cube|| 项,引导夹爪贴近方块",
+    "TD3 替换 SAC(deterministic policy + 持久 action noise)",
+    "UTD > 1(在信号 + 探索结构问题修复后再考虑)",
+    "MHER(lambda) — n-step HER 去 bias",
+    "Critic-only LN(等探索结构修好再回头看)"
   ]
 }

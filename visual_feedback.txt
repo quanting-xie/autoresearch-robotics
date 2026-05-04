@@ -1,57 +1,60 @@
-Experiment 4 — dense training reward (sparse stays for eval)
-=============================================================
-eval_success_rate: 0.00 (was 0.10 baseline)
-mean_reward: -50.00   |   mean_distance: 0.220
-training_seconds: 1800   |   total_steps: 275,727 (vs 279K baseline; comparable)
+实验 5 — dense reward + 固定 alpha=0.2 (AUTO_ALPHA=False)
+=========================================================
+eval_success_rate: 0.10(等于基线 0.10)
+mean_reward: -45.0   |   mean_distance: 0.235(略差于基线 0.214)
+training_seconds: 1800   |   total_steps: 252,638(基线 279K,略低)
+total_updates: 251,638
 
-VERDICT: WORSE. Discard. But the failure tells us something useful.
+判定:与基线持平。按 program.md 规则 discard(等于基线即丢弃)。
+但训练日志干净 — 这次是真正"什么都没坏",只是没有突破。
 
-What I see in the frames
-------------------------
-- ep0_end: gripper sits ON the table right NEXT to the cube. The goal (red)
-  is also right next to the cube. Cube never moved.
-- ep1_end: gripper directly at the cube; cube unmoved.
-- ep2_end: gripper at the cube; cube unmoved.
-- Compared to baseline: behaviour looks essentially identical (reach the
-  cube, don't manipulate). Dense reward did not produce manipulation.
+帧分析
+------
+- ep0_end:夹爪正悬停在方块正上方;goal(红球)在空中偏左。方块未移动。
+- ep1_end:夹爪降到方块旁,goal 也在桌面上方块附近。视觉上和 baseline reach 几乎一样。
+- ep2_end:夹爪在方块正上方。方块未动。
+对比 baseline:行为基本一致 — 夹爪到达方块附近,不抓不举。
 
-The training-log smoking gun
-----------------------------
-- Alpha collapsed to literally **0.000** by mid-training (vs 0.12 baseline,
-  even worse than exp 2's 0.002).
-- Critic loss settled at ~0.08 (LOW — the critic actually fits the dense
-  value well; that part worked).
-- Actor loss is small positive ~0.43 (no entropy bonus, near-deterministic).
-- Throughput unaffected (~170 steps/sec, same as baseline).
+训练曲线告诉我什么
+------------------
+- alpha 整个训练保持在 0.200(预期内,因为 AUTO_ALPHA=False)
+- critic_loss 稳定在 ~0.12(baseline 是 ~0.15,略好;说明 dense reward 让 critic
+  更容易拟合)
+- actor_loss 在 -1.0 附近(负值,说明 Q 平均为正;policy 找到了一个
+  稳定但非最优的策略)
+- 吞吐 ~140 步/秒,比 baseline 170 略低,但合理
 
-Why dense alone doesn't work here
----------------------------------
-Two compounding reasons:
-1. **Auto-alpha collapse is amplified by dense reward.** With sparse reward,
-   Q-values are bounded in a narrow range (-50 to 0), so the entropy bonus
-   alpha * log_prob has comparable magnitude to Q. When Q signal grows
-   (dense reward), alpha shrinks toward zero to let the policy match the
-   bigger Q gradient. Result: zero exploration.
-2. **Dense reward is constant per episode if the cube doesn't move.**
-   reward = -||cube_pos - goal||. Cube only moves when bumped. With alpha=0
-   and no random exploration, the deterministic policy never bumps the cube,
-   so the dense gradient is trivially flat per episode and the policy
-   converges to "move gripper near cube and hover."
-3. So the visual behaviour looks like baseline reach: the task is reduced
-   to "minimize ||grip - cube|| because gripper position is what changes,
-   even though the reward depends on cube position."
+为什么 dense + 固定 alpha 没突破
+-------------------------------
+关键洞察:固定 alpha=0.2 给的是"足够大"的探索噪声,但探索的*结构*没变 —
+还是 4D 各分量独立的高斯噪声。问题在于:
+1. 抓取需要协调:夹爪到方块位置 + 夹爪闭合 + 手臂上提,这是个多步连续序列
+2. i.i.d 高斯噪声每步独立,不会自然产生"持续闭合夹爪几步"这种序列
+3. 即使 alpha=0.2 足够大,policy 的 mean 主导,而 mean 一旦学到"hover near cube",
+   就把夹爪指令保持在某个中间值附近,几乎不闭合
+4. 结果:整个 buffer 里方块几乎从不移动 → HER 重标注的 achieved_goal 仍然
+   集中在方块起点 → manipulation 信号永远不出现 → 学不到抓取
 
-Critically: dense reward IS the right idea, but ONLY if exploration stays
-alive. Otherwise it just lets auto-alpha collapse harder.
+实验 1-5 累计结论
+-----------------
+- 优化稳定性(LayerNorm)单独不够,反而把 auto-alpha 推到 0
+- 探索量(target_entropy 调整、固定 alpha)单独不够,Gaussian noise 结构无法
+  产生协调抓取
+- 信号(dense reward)单独不够,固定 alpha 配合也只能持平 baseline
+- 必须改的是探索的*结构*:某种方式让 buffer 里出现实际的方块移动事件,
+  HER 才能从中学习
 
-Next move: combine dense + fixed alpha
---------------------------------------
-Set AUTO_ALPHA = False. Alpha stays at INIT_ALPHA = 0.2 throughout training.
-This guarantees a non-trivial entropy bonus and persistent random action
-noise, which means the gripper will keep bumping the cube. When it does,
-dense reward gives a clear gradient on whether the bump moved the cube
-toward/away from the goal. Combined, these address signal starvation AND
-exploration death — the two failure modes identified across exps 1-4.
+下一步:抓取偏置 warmup
+---------------------
+方案:在 STEPS_BEFORE_LEARNING 阶段(随机动作)强制 action[3]=-1(夹爪闭合),
+并把 warmup 从 1000 步加到 5000 步(~100 个 episode)。这样手臂随机摸索
+但夹爪一直闭合;只要随机手臂偶尔碰到方块,就有概率推动方块、夹住方块、
+甚至举起方块。这些事件进 buffer 后,HER 重标注产生"方块移到 X 位置"的
+synthetic 目标,policy 学到协调抓取的内在奖励结构。
+单变量改动,直接攻击探索结构 — 之前 5 个实验都没碰过这条线。
 
-If exp 5 still doesn't work, fall back to gripper-biased OU noise during
-warmup (more targeted than uniform noise).
+如果还不行的备选
+---------------
+- 多分量 dense reward(加 -||grip-cube|| 项)
+- OU 时间相关探索噪声
+- TD3 替换 SAC(deterministic policy + 持久 action noise)

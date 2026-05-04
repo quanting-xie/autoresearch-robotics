@@ -3,3 +3,4 @@ ed69e5e	0.100000	-45.0	reach learned, gripper never closes/lifts; cube never mov
 bc67ee6	0.000000	-50.0	LN crashed reach; alpha collapsed to 0.002; 32% slower	discard	LayerNorm in actor+critic hidden layers
 a2266b6	0.000000	-50.0	sign-convention bug; alpha collapsed harder, critic diverged to 50	discard	target_entropy=-action_dim/2 (intended more entropy, got less)
 e81c811	0.000000	-50.0	dense reward fits well but alpha collapsed to 0; gripper just reaches	discard	dense training reward (alone, AUTO_ALPHA still on)
+767d033	0.100000	-45.0	训练干净但成功率持平基线;夹爪到位不抓 — 探索结构是瓶颈	discard	dense reward + 固定 alpha=0.2 组合

@@ -76,7 +76,7 @@ HER_STRATEGY = "future"     # "future" or "final"
 # Training schedule
 STEPS_BEFORE_LEARNING = 1000    # random exploration steps before learning
 UPDATE_EVERY = 1                # gradient steps per env step
-N_UPDATES = 3                   # number of gradient updates per update cycle (RR=3; exp 10 best)
+N_UPDATES = 4                   # isolate RR=4 with exp10 reward anchor; exp12 was confounded by low at-goal bonus
 WARMUP_STEPS = 0                # steps with random actions after learning starts
 
 # Reward shaping (training-only; eval in evaluate.py uses unmodified env reward).

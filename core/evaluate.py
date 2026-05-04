@@ -51,6 +51,66 @@ def run_spot_eval(policy_fn, env_id=ENV_ID, n_episodes=5):
     return successes / n_episodes
 
 
+def describe_rollout_with_gemini(video_path, env_id=None,
+                                  output_path="./auto_video_summary.txt"):
+    """Send the eval rollout mp4 to Gemini 3 Flash for a dense motion-aware
+    description. Writes the description to `output_path` (default
+    auto_video_summary.txt in the cwd). Silently no-ops if GEMINI_API_KEY
+    is unset or google-genai isn't installed — the loop continues either way.
+
+    Captures motion-dependent failure modes (slip, oscillation, near-miss
+    grasps, jitter) that the agent's keyframe analysis cannot see. The
+    agent reads this file in step 5 (VISUAL ANALYSIS) alongside the PNG
+    keyframes; it does NOT replace `visual_feedback.txt` (which the agent
+    still writes from their own synthesis).
+    """
+    if not os.environ.get("GEMINI_API_KEY"):
+        return None
+    try:
+        from google import genai
+    except ImportError:
+        return None
+    try:
+        client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+        uploaded = client.files.upload(file=str(video_path))
+        prompt = (
+            f"Watch this {env_id or 'robot manipulation'} rollout video carefully. "
+            "Output 5 numbered bullets in Chinese (中文):\n"
+            "1. 时间轴上机器人做了什么 (chronologically what the robot did, with "
+            "timestamps in seconds)\n"
+            "2. 是否尝试抓取以及结果 (whether grasp attempts happened and their "
+            "outcomes — slipped, succeeded, missed)\n"
+            "3. 可见的失败模式 (visible failure modes — overshoot, oscillation, "
+            "slip, no contact, jitter, wrong approach angle, etc.)\n"
+            "4. 动作平稳还是抖动 (motion quality — smooth/confident vs "
+            "jittery/uncertain)\n"
+            "5. 给训练循环的具体改进建议 (one specific concrete change for the "
+            "training loop, e.g. \"increase HER_K\", \"add gripper-close penalty "
+            "when not near block\")\n"
+            "Be specific about timing in seconds. If success was achieved, note "
+            "exactly when (frame number or time). If a near-miss happened "
+            "(e.g. block almost grasped but slipped), describe the slip moment "
+            "precisely. Identifiers like ENV_ID, HER_K, etc. stay in English."
+        )
+        resp = client.models.generate_content(
+            model="gemini-3-flash-preview",
+            contents=[uploaded, prompt],
+        )
+        text = (resp.text or "").strip()
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(text)
+        # Best-effort cleanup of the uploaded file.
+        try:
+            client.files.delete(name=uploaded.name)
+        except Exception:
+            pass
+        print(f"auto_video_summary.txt written ({len(text)} chars)")
+        return text
+    except Exception as e:
+        print(f"gemini description failed (non-fatal): {e}")
+        return None
+
+
 def should_stop_training(spot_eval_history, total_training_time, critic_loss, actor_loss,
                          min_train_seconds=600.0):
     """Decide whether to bail out of training early.
@@ -265,6 +325,11 @@ def render_episodes(policy_fn, env_id=ENV_ID, n_episodes=RENDER_EPISODES,
             fpath = output_dir / fname
             imageio.imwrite(str(fpath), all_frames[idx])
             frame_paths.append(str(fpath))
+
+    # Auto-describe the rollout video with Gemini 3 Flash, if GEMINI_API_KEY
+    # is set. Captures motion-dependent failure modes that 9 keyframes miss.
+    # Writes ./auto_video_summary.txt; agent reads it in VISUAL ANALYSIS.
+    describe_rollout_with_gemini(video_path, env_id=env_id)
 
     # Live window display (optional)
     if show_window:

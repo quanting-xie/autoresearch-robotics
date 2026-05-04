@@ -188,18 +188,18 @@ The training script handles this automatically:
 
 ### 5. VISUAL ANALYSIS (you do this)
 
-After the training script finishes, **you** analyze the rendered frames:
+After the training script finishes, **you** analyze the rendered rollout. The order matters: read the auto-summary first (it sees motion the PNGs can't), then look at the keyframes, then synthesize.
 
-1. **Read the rendered frames**: Open the PNG files from `./renders/` — there are 9 PNGs: 3 episodes × 3 frames each (`ep0_start.png`, `ep0_mid.png`, `ep0_end.png`, `ep1_start.png`, etc.)
-2. **Read previous best frames** (if `./renders_best/` exists): Open those PNGs too for visual comparison against the current run
-3. **Read context**: Read `experiment_history.json` for accumulated insights, failed directions, and recent experiment history
-4. **Analyze**: Look at the frames and assess:
-   - What is the robot doing? Describe the observed behavior
-   - If previous best frames exist: how does current behavior compare? What changed?
+1. **Read `auto_video_summary.txt`** — Gemini 3 Flash watched the full `eval_video.mp4` and produced a dense Chinese description with timestamps. It catches motion-dependent failure modes (slip moments, oscillation, jitter, near-miss grasps) that you cannot see from 9 still PNGs. **Always read this first.** If the file is missing, `GEMINI_API_KEY` wasn't set — fall back to keyframes only.
+2. **Read the rendered keyframes**: Open the PNG files from `./renders/` — there are 9 PNGs: 3 episodes × 3 frames each (`ep0_start.png`, `ep0_mid.png`, `ep0_end.png`, `ep1_start.png`, etc.). Use these to verify Gemini's claims and to anchor specific spatial details.
+3. **Read previous best frames** (if `./renders_best/` exists): Open those PNGs for visual comparison against the current run.
+4. **Read context**: Read `experiment_history.json` for accumulated insights, failed directions, and recent experiment history.
+5. **Analyze**: Synthesize the Gemini summary + keyframes + history. Assess:
+   - What is the robot doing? Describe the observed behavior with specific timing (e.g. "at 0.7s the gripper closes prematurely 3cm from the block")
    - Was the hypothesis confirmed? Why or why not?
-   - What specific failure modes are visible? (overshooting, oscillation, not moving, wrong direction, etc.)
+   - What specific failure modes are visible? (slip, oscillation, overshoot, no contact, wrong approach angle, jitter, etc.) — Gemini will have flagged these; cite them and add what you see in the keyframes
    - What concrete change should be tried next and why? Be specific (e.g., "increase HER_K from 4 to 8" not "try different hyperparameters")
-5. **Write `visual_feedback.txt`**: Write your analysis to this file for future reference
+6. **Write `visual_feedback.txt`**: Your synthesis. Don't just paraphrase Gemini — note where you agree and where keyframes show something different. This is the file `experiment_history.json`'s `vlm_feedback_summary` is distilled from.
 
 ### 6. SYNTHESIZE (update persistent memory)
 
@@ -275,8 +275,9 @@ program.md              — these instructions
 experiment_history.json — persistent structured memory across experiments
 literature_notes.md     — distilled findings from web literature scans (you write this; bootstrap on exp 1)
 human_feedback.json     — per-experiment human notes from the dashboard (the human writes this; you READ it in ANALYZE and toggle consumed_by_agent: true)
+auto_video_summary.txt  — Gemini's auto-generated dense description of the latest rollout video (READ-ONLY, written by evaluate.py after each rendering pass; describes motion-dependent failure modes the keyframes can't show — slip, oscillation, near-miss grasps, jitter, approach angle. Always in Chinese. Read it FIRST in step 5 VISUAL ANALYSIS, then synthesize with the keyframes when writing your own visual_feedback.txt)
 results.tsv             — human-readable experiment log
-visual_feedback.txt     — latest visual analysis (you write this)
+visual_feedback.txt     — latest visual analysis (you write this — synthesize Gemini's auto_video_summary.txt + your own keyframe analysis)
 renders/                — latest rendered frames + video
 renders_best/           — frames from the best experiment so far (for visual comparison)
 ```

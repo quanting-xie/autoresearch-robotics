@@ -80,6 +80,13 @@ UPDATE_EVERY = 1                # gradient steps per env step
 N_UPDATES = 1                   # number of gradient updates per update cycle
 WARMUP_STEPS = 0                # steps with random actions after learning starts
 
+# Lightweight policy prior: only active once the gripper is already near the block.
+USE_TRANSPORT_ACTION_PRIOR = True
+PRIOR_CONTACT_RADIUS = 0.09
+PRIOR_PUSH_COEF = 0.20
+PRIOR_DOWN_COEF = 0.10
+PRIOR_MAX_DELTA = 0.25
+
 # ---------------------------------------------------------------------------
 # Observation normalization
 # ---------------------------------------------------------------------------
@@ -121,6 +128,37 @@ class RunningMeanStd:
 
 def get_activation(name):
     return {"relu": nn.ReLU, "tanh": nn.Tanh, "gelu": nn.GELU}[name]
+
+
+def apply_transport_action_prior(obs_dict, action):
+    """Nudge near-contact actions toward pushing the block along the goal vector."""
+    if not USE_TRANSPORT_ACTION_PRIOR:
+        return action
+
+    action = np.asarray(action, dtype=np.float32).copy()
+    obs = obs_dict["observation"]
+    gripper_pos = obs[:3]
+    block_pos = obs_dict["achieved_goal"]
+    goal_pos = obs_dict["desired_goal"]
+
+    grip_block_dist = np.linalg.norm(gripper_pos - block_pos)
+    if grip_block_dist >= PRIOR_CONTACT_RADIUS:
+        return action
+
+    block_goal_xy = goal_pos[:2] - block_pos[:2]
+    block_goal_dist = np.linalg.norm(block_goal_xy)
+    if block_goal_dist <= 0.05:
+        return action
+
+    gate = 1.0 - grip_block_dist / PRIOR_CONTACT_RADIUS
+    push_xy = block_goal_xy / (block_goal_dist + 1e-6)
+    delta = np.zeros_like(action)
+    delta[:2] = PRIOR_PUSH_COEF * gate * push_xy
+    if gripper_pos[2] > block_pos[2] + 0.025:
+        delta[2] = -PRIOR_DOWN_COEF * gate
+
+    delta = np.clip(delta, -PRIOR_MAX_DELTA, PRIOR_MAX_DELTA)
+    return np.clip(action + delta, action_low, action_high)
 
 
 class Actor(nn.Module):
@@ -547,6 +585,11 @@ if WANDB_ENABLED:
                 "steps_before_learning": STEPS_BEFORE_LEARNING,
                 "update_every": UPDATE_EVERY,
                 "n_updates": N_UPDATES,
+                "use_transport_action_prior": USE_TRANSPORT_ACTION_PRIOR,
+                "prior_contact_radius": PRIOR_CONTACT_RADIUS,
+                "prior_push_coef": PRIOR_PUSH_COEF,
+                "prior_down_coef": PRIOR_DOWN_COEF,
+                "prior_max_delta": PRIOR_MAX_DELTA,
                 "num_params": num_params,
             },
         )
@@ -588,6 +631,7 @@ while True:
         action = env.action_space.sample()
     else:
         action = agent.select_action(obs, deterministic=False)
+    action = apply_transport_action_prior(obs, action)
 
     # Environment step
     next_obs, reward, terminated, truncated, info = env.step(action)
@@ -691,7 +735,8 @@ while True:
         last_spot_eval_at = total_training_time
         # Build a deterministic policy fn from the current agent.
         def _spot_policy_fn(obs_dict, _agent=agent):
-            return _agent.select_action(obs_dict, deterministic=True)
+            action = _agent.select_action(obs_dict, deterministic=True)
+            return apply_transport_action_prior(obs_dict, action)
         sr_spot = run_spot_eval(_spot_policy_fn, ENV_ID, n_episodes=5)
         spot_eval_history.append(sr_spot)
         print(f"\n[spot-eval] step {total_steps} | sr={sr_spot:.2f} | "
@@ -727,7 +772,8 @@ print("\n--- Evaluation ---")
 
 # Create policy function for evaluation
 def policy_fn(obs_dict):
-    return agent.select_action(obs_dict, deterministic=True)
+    action = agent.select_action(obs_dict, deterministic=True)
+    return apply_transport_action_prior(obs_dict, action)
 
 # Quantitative evaluation
 metrics = evaluate(policy_fn, ENV_ID, n_episodes=EVAL_EPISODES)

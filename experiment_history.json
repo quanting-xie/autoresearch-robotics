@@ -146,12 +146,17 @@
     },
     {
       "id": 5,
-      "commit": null,
+      "commit": "309ddab",
       "timestamp": "2026-05-03T21:54:38",
       "agent": "opus-4.7",
-      "description": "",
-      "hypothesis": "",
-      "changes_made": [],
+      "description": "BUNDLE attacking actor signal-to-noise: AUTO_ALPHA=False + INIT_ALPHA=0.05 (low fixed entropy coefficient) + dense reward shaping in replay buffer (-||achieved - desired||).",
+      "hypothesis": "Four 0% experiments suggest the 10s budget caps grad updates at ~900-1100 regardless of architecture. To make those updates count, fix the actor's signal-to-noise: low fixed alpha (0.05) bypasses the entropy domination of actor_loss that auto_alpha=1.0 causes; dense reward gives the Q-target a clean direction. Both are needed (each tried alone in earlier experiments produced 0%). Predict: first non-zero success_rate of the run.",
+      "changes_made": [
+        "AUTO_ALPHA: True -> False",
+        "INIT_ALPHA: 0.2 -> 0.05",
+        "_compute_reward: sparse {-1, 0} -> dense -L2 distance",
+        "sample(): override stored env reward with dense reward computed from buffer next_achieved_goals + post-HER desired_goals"
+      ],
       "metrics": {
         "success_rate": 0.5,
         "mean_reward": -23.700000762939453,

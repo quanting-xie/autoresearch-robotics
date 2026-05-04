@@ -77,7 +77,7 @@ HER_STRATEGY = "future"     # "future" or "final"
 # Training schedule
 STEPS_BEFORE_LEARNING = 1000    # random exploration steps before learning
 UPDATE_EVERY = 1                # gradient steps per env step
-N_UPDATES = 2                   # isolated replay-ratio test on sparse early-stop baseline
+N_UPDATES = 1                   # number of gradient updates per update cycle
 WARMUP_STEPS = 0                # steps with random actions after learning starts
 
 # ---------------------------------------------------------------------------

@@ -261,3 +261,27 @@ Visible failure modes:
 
 Next suggestion:
 - Discard this exact low-gain action prior and restore the sparse N_UPDATES=1 baseline. If revisiting priors, try a stronger persistent push primitive or controller-style post-processing as a separate structural direction; otherwise return to learned transport signals rather than one-step action nudges.
+
+Exp 23 visual analysis (commit 41beb0a)
+
+Quantitative result: eval_success_rate 0.000000, eval_mean_reward -50.000000, eval_mean_distance 0.229605. Training ran for 1800.0s and stopped with early_stop_reason "no-progress - 600s elapsed, last 3 spot-evals all 0". Spot eval history was [0.20, 0.20, 0.20, 0.00, 0.00, 0.00].
+
+Observed behavior:
+- Episode 0: the gripper reaches the object/goal area and appears to make contact, but the block remains offset from the red marker at the end.
+- Episode 1: the gripper presses down near the block and stays in close contact; the block is close to the target region but not clearly inside the success threshold.
+- Episode 2: the gripper descends near the block but ends parked beside it, with the block still separated from the red marker.
+
+Comparison to previous best:
+- Compared with exp22, mean distance improved from 0.257550 to 0.229605 and early spot evals were more stable: three consecutive 0.20 checks. Compared with the best final success runs, the final success still regressed to 0.0.
+
+Hypothesis assessment:
+- The hypothesis was partially supported visually and by spot evals, but not confirmed by the final metric. A stronger memoryless controller improves contact and near-goal geometry, yet the policy/controller combination still does not robustly cross the final placement threshold.
+
+Visible failure modes:
+- Spot-eval success collapses after early 0.20/0.20/0.20 checkpoints.
+- Gripper presses or parks near the block rather than executing a sustained push through the target.
+- Final rendered blocks are close but still visibly offset from the goal marker.
+- Memoryless per-step blending lacks temporal commitment once a push has started.
+
+Next suggestion:
+- Discard this exact push-controller change and restore the sparse N_UPDATES=1 baseline. If continuing with controller-style policies, try a multi-step push primitive with temporal state; otherwise use exp23 as evidence that transport-specific contact helps and return to learned final-threshold shaping.

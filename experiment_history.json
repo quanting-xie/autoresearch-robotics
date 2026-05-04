@@ -1,7 +1,7 @@
 {
   "best_commit": "6b5cfd7",
   "best_success_rate": 0.2,
-  "total_experiments": 22,
+  "total_experiments": 23,
   "experiments": [
     {
       "id": 12,
@@ -409,6 +409,44 @@
       "status": "discard",
       "hypothesis_confirmed": false,
       "lesson_learned": "A small gated transport action prior can produce intermittent 0.20 spot evals and improve final mean distance to 0.258, but it still failed final sparse success. The contact-to-transport bottleneck needs either a stronger persistent push mechanism or a learning signal that makes the block cross the final threshold, not just a low-gain local nudge."
+    },
+    {
+      "id": 23,
+      "commit": "41beb0a",
+      "timestamp": "2026-05-04T12:40:50",
+      "agent": "gpt-5.5",
+      "description": "Added a stronger persistent near-contact push controller that presses down near the block and then blends in a block-to-goal XY push.",
+      "hypothesis": "Exp22's low-gain action nudge improved mean distance and produced intermittent 0.20 spot evals, but final renders showed the gripper parking near the block without pushing through the target. A stronger controller-style blend, active only when the gripper is close in XY, should first press down to maintain contact and then persistently push along the block-to-goal direction, converting near-goal offsets into final successes.",
+      "changes_made": [
+        "Added USE_PUSH_CONTROLLER with PUSH_XY_RADIUS=0.10, PUSH_Z_WINDOW=0.15, PUSH_ACTION_MAG=0.65, PUSH_DOWN_ACTION=0.25, and PUSH_BLEND=0.65.",
+        "When close in XY but above the block, blended in a downward action to establish contact.",
+        "Once near block height, blended in a persistent XY push along the block-to-goal direction.",
+        "Applied the same controller in training actions, spot evaluation, final evaluation, and rendering policy functions."
+      ],
+      "metrics": {
+        "success_rate": 0.0,
+        "mean_reward": -50.0,
+        "mean_distance": 0.22960473783308868,
+        "total_steps": 239728,
+        "total_episodes": 4794,
+        "total_updates": 238728,
+        "peak_vram_mb": 27.40087890625
+      },
+      "vlm_feedback_summary": "persistent push controller improved mean distance to 0.230 and gave three early 0.20 spot evals, but final success remained 0.0 with block still offset from the goal",
+      "vlm_failure_modes": [
+        "spot evals started stable at 0.20, 0.20, 0.20 but collapsed to three zeros before final evaluation",
+        "gripper makes contact or presses near the block but does not reliably push it through the red target",
+        "several rendered episodes leave the block close to the goal marker but outside the success threshold",
+        "controller-style post-processing improves geometry but is not robust enough under final evaluation seeds"
+      ],
+      "vlm_suggestions": [
+        "discard this exact push-controller change by final success metric and restore the sparse N_UPDATES=1 baseline",
+        "if continuing with controllers, add temporal state/persistence rather than a memoryless per-step blend",
+        "alternatively use exp23 as evidence that goal-directed contact is promising and return to learned reward shaping around final threshold crossing"
+      ],
+      "status": "discard",
+      "hypothesis_confirmed": false,
+      "lesson_learned": "A stronger persistent push controller is the best action-prior variant so far by mean distance and spot-eval stability, but it still failed final success. Memoryless near-contact post-processing can improve contact and near misses, yet final placement needs either temporal persistence or a learned signal that rewards crossing the success threshold."
     }
   ],
   "insights": [
@@ -423,7 +461,8 @@
     "Fully restoring exp10 shaping, LayerNorm critic, Q_MIN clamp, and N_UPDATES=3 on top of early-stop instrumentation regressed to 0.0 success.",
     "Sparse N_UPDATES=2 also regressed to 0.0 success, suggesting the N_UPDATES=1 early-stop setup is the better current infrastructure anchor.",
     "A MIN_ALPHA=0.02 entropy floor on the sparse N_UPDATES=1 early-stop baseline produced one 0.20 spot eval but final success still regressed to 0.0, so entropy preservation alone is insufficient.",
-    "The gated near-contact push prior improved final mean distance versus exp21 (0.258 vs 0.279) and produced two 0.20 spot evals, but final success stayed 0.0; low-gain action nudges are not enough for stable placement."
+    "The gated near-contact push prior improved final mean distance versus exp21 (0.258 vs 0.279) and produced two 0.20 spot evals, but final success stayed 0.0; low-gain action nudges are not enough for stable placement.",
+    "The persistent near-contact push controller produced the strongest resumed-loop auxiliary signal (three early 0.20 spot evals and mean_distance 0.230) but final success was still 0.0, indicating memoryless controller blends improve near misses without robust placement."
   ],
   "failed_directions": [
     "AT_GOAL_BONUS 20 -> 5 while using N_UPDATES=4: regressed success_rate to 0.10 and produced approach/hover behavior rather than reliable transport.",
@@ -435,7 +474,8 @@
     "Full exp10 recipe on early-stop sparse infrastructure: regressed success to 0.0 and hit no-progress early stop after spot evals 0.20, 0.00, 0.00, 0.00.",
     "Sparse N_UPDATES 1 -> 2 on early-stop infrastructure: regressed success to 0.0, produced all-zero spot evals, and raised critic loss late in the run.",
     "MIN_ALPHA=0.02 entropy floor on sparse N_UPDATES=1 early-stop baseline: produced a mid-run 0.20 spot eval but final success was 0.0 and renders still showed approach/hover without transport.",
-    "Low-gain gated transport action prior (9 cm contact radius, +0.20 XY push, +0.10 down): final success remained 0.0 despite intermittent 0.20 spot evals and closer mean distance."
+    "Low-gain gated transport action prior (9 cm contact radius, +0.20 XY push, +0.10 down): final success remained 0.0 despite intermittent 0.20 spot evals and closer mean distance.",
+    "Memoryless persistent push controller (close-XY down press then 0.65 block-to-goal push): improved mean distance to 0.230 but final success remained 0.0 after spot evals collapsed from 0.20,0.20,0.20 to zeros."
   ],
   "promising_directions": [
     "Restore exp10 settings, then address jerkiness with a smoother local final-placement reward instead of lowering the flat at-goal bonus.",
@@ -443,6 +483,7 @@
     "Preserve the exp10 transport rewards and add more selective contact-acquisition shaping rather than weakening terminal or velocity transport incentives.",
     "Use the sparse early-stop baseline with N_UPDATES=1 as the current infrastructure anchor and test isolated lightweight shaping or action-prior changes.",
     "If using the sparse early-stop anchor, prefer transport-specific near-contact push/action priors over pure entropy or replay-ratio changes.",
-    "If revisiting action priors, test a stronger persistent push primitive or controller-style post-processing rather than a one-step low-gain nudge."
+    "If revisiting action priors, test a stronger persistent push primitive or controller-style post-processing rather than a one-step low-gain nudge.",
+    "For controller-style directions, add temporal persistence/state or a multi-step push primitive; memoryless per-step blends are not enough."
   ]
 }

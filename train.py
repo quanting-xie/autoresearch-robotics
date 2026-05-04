@@ -73,6 +73,7 @@ BUFFER_SIZE = 200_000       # replay buffer capacity
 USE_HER = True              # enable HER for sparse rewards
 HER_K = 4                   # future goals per transition
 HER_STRATEGY = "future"     # "future" or "final"
+N_STEP = 3                  # n-step returns on critic target (exp9: was 1; n=3 gives stronger value targets)
 
 # Training schedule
 STEPS_BEFORE_LEARNING = 1000    # random exploration steps before learning
@@ -350,13 +351,55 @@ class ReplayBuffer:
                     np.linalg.norm(next_ag - new_goal) < 0.05
                 )
 
-        # Dense reward override (exp5): consistent dense signal for ALL transitions.
-        next_ags = self.next_achieved_goals[indices]
-        rewards = -np.linalg.norm(next_ags - desired_goals, axis=-1, keepdims=True).astype(np.float32)
+        # n-step return computation (exp9). For each sampled idx, walk forward
+        # up to N_STEP transitions in the same episode, summing dense rewards
+        # (-||next_achieved - post-HER desired||) discounted by GAMMA^t. Track
+        # the bootstrap multiplier (gamma^k) and the next_obs of the last valid
+        # step. Falls back to k<n when the episode ends earlier.
+        rewards = np.zeros((batch_size, 1), dtype=np.float32)
+        gammas = np.zeros((batch_size, 1), dtype=np.float32)
+        next_obs_nstep = self.next_observations[indices].copy()
+        next_ag_last = self.next_achieved_goals[indices].copy()
+        terminal_in_window = np.zeros(batch_size, dtype=np.bool_)
+
+        for i in range(batch_size):
+            idx = indices[i]
+            ep_id = self.episode_ids[idx]
+            desired = desired_goals[i]
+            sum_r = 0.0
+            cumulative_gamma = 1.0
+            last_valid_t = 0
+            terminated = False
+            for t in range(N_STEP):
+                cur_idx = (idx + t) % self.capacity
+                if t > 0 and self.episode_ids[cur_idx] != ep_id:
+                    break  # left the episode boundary (e.g., wraparound)
+                next_ag_t = self.next_achieved_goals[cur_idx]
+                r_t = -float(np.linalg.norm(next_ag_t - desired))
+                sum_r += cumulative_gamma * r_t
+                cumulative_gamma *= GAMMA
+                last_valid_t = t
+                if self.dones[cur_idx] > 0.5:
+                    terminated = True
+                    break  # episode end at this step
+
+            rewards[i, 0] = sum_r
+            gammas[i, 0] = cumulative_gamma  # GAMMA^(last_valid_t+1)
+            last_idx = (idx + last_valid_t) % self.capacity
+            next_obs_nstep[i] = self.next_observations[last_idx]
+            next_ag_last[i] = self.next_achieved_goals[last_idx]
+            terminal_in_window[i] = terminated
+
+        # done for bootstrap: 1 if the n-step window ended in episode termination
+        # OR if the post-HER desired_goal is achieved at the last transition.
+        her_success = (
+            np.linalg.norm(next_ag_last - desired_goals, axis=-1) < 0.05
+        )
+        dones_nstep = (terminal_in_window | her_success).astype(np.float32).reshape(-1, 1)
 
         # Flatten observations: concat obs + desired_goal
         flat_obs = np.concatenate([obs, desired_goals], axis=-1)
-        flat_next_obs = np.concatenate([next_obs, desired_goals], axis=-1)
+        flat_next_obs = np.concatenate([next_obs_nstep, desired_goals], axis=-1)
 
         # Apply observation normalization if available
         if obs_normalizer is not None:
@@ -368,7 +411,8 @@ class ReplayBuffer:
             torch.FloatTensor(actions).to(device),
             torch.FloatTensor(rewards).to(device),
             torch.FloatTensor(flat_next_obs).to(device),
-            torch.FloatTensor(dones).to(device),
+            torch.FloatTensor(dones_nstep).to(device),
+            torch.FloatTensor(gammas).to(device),
         )
 
 
@@ -413,14 +457,15 @@ class SACAgent:
 
     def update(self, batch):
         """Single SAC update step. Returns dict of losses."""
-        obs, actions, rewards, next_obs, dones = batch
+        obs, actions, rewards, next_obs, dones, gammas = batch
 
         # Critic update
         with torch.no_grad():
             next_actions, next_log_probs = self.actor.sample(next_obs)
             q1_target, q2_target = self.critic_target(next_obs, next_actions)
             q_target = torch.min(q1_target, q2_target) - self.alpha * next_log_probs
-            target_q = rewards + (1 - dones) * GAMMA * q_target
+            # n-step bootstrap: gammas is GAMMA^k for per-sample window length k.
+            target_q = rewards + (1 - dones) * gammas * q_target
 
         q1, q2 = self.critic(obs, actions)
         critic_loss = F.mse_loss(q1, target_q) + F.mse_loss(q2, target_q)

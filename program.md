@@ -290,3 +290,17 @@ renders_best/           — frames from the best experiment so far (for visual c
 **所有 bookkeeping 字段必须用中文书写** — `hypothesis`, `description`, `vlm_feedback_summary`, `vlm_failure_modes`, `vlm_suggestions`, `lesson_learned`, 以及 `results.tsv` 的描述列。dashboard 用中文展示给阅读中文的用户。代码、文件路径、变量名等保持英文 / ASCII;只有面向人的叙述性文本用中文。如果 `literature_notes.md` 引用了英文论文,标题保留原文,要点摘要用中文。
 
 以下字段也用中文:`commit message`(提交说明)、`visual_feedback.txt`、以及任何写入 `experiment_history.json` 的人类可读字段。
+
+## auto_video_summary.txt (Gemini 视频摘要 — 优先阅读)
+
+每次 `evaluate.py` 渲染完 `eval_video.mp4` 之后,会自动调用 Gemini 3 Flash 看完视频并把密集的中文描述写到 `./auto_video_summary.txt`。**这个文件捕捉了 9 张关键帧 PNG 看不见的运动信息** — 滑出 (slip)、抖动 (oscillation)、抖动 (jitter)、近似抓取但失败、接近角度错误等。
+
+**步骤 5 (VISUAL ANALYSIS) 的新读取顺序:**
+1. **先读 `auto_video_summary.txt`** — Gemini 看完整视频后写的时间戳标注的失败模式
+2. 然后看 9 张 PNG 关键帧 — 用来验证 Gemini 的描述、锚定空间细节
+3. 再读 `experiment_history.json` 历史
+4. 综合三者写你自己的 `visual_feedback.txt`,在哪里同意 Gemini、在哪里关键帧显示出不同
+
+如果 `auto_video_summary.txt` 不存在,说明 `GEMINI_API_KEY` 没设置 — 此时回退到只看 PNG 关键帧。
+
+**`auto_video_summary.txt` 是只读的 (由 `evaluate.py` 写)。不要修改它,也不要把它的内容直接复制到 `visual_feedback.txt` —— 你需要做综合判断,不是转写。**

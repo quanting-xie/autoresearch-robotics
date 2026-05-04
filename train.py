@@ -80,6 +80,17 @@ UPDATE_EVERY = 1                # gradient steps per env step
 N_UPDATES = 1                   # number of gradient updates per update cycle
 WARMUP_STEPS = 0                # steps with random actions after learning starts
 
+# Exploration noise (exp 10). DDPG-style: deterministic SAC mean + pure OU
+# time-correlated noise. Exp 9 showed OU on top of SAC's stochastic sample
+# helped reach (mean_distance 0.194 vs 0.214) but the i.i.d. layer diluted
+# the signal. Removing SAC's stochastic sampling isolates OU's effect; this
+# is the standard DDPG/HER recipe (Lillicrap 2015 / Andrychowicz 2017).
+USE_OU_NOISE = True
+DETERMINISTIC_BEHAVIOR_POLICY = True   # True = SAC mean only, no i.i.d. sample
+OU_THETA = 0.15
+OU_SIGMA = 0.2
+OU_MU = 0.0
+
 # ---------------------------------------------------------------------------
 # Observation normalization
 # ---------------------------------------------------------------------------
@@ -113,6 +124,29 @@ class RunningMeanStd:
     def normalize(self, x):
         """Normalize observation, clipping to [-5, 5]."""
         return np.clip((x - self.mean) / np.sqrt(self.var + 1e-8), -5.0, 5.0).astype(np.float32)
+
+
+class OUNoise:
+    """Ornstein-Uhlenbeck process for time-correlated exploration noise.
+
+    dξ = θ(μ - ξ)dt + σ dW, with dt=1 → ξ_{t+1} = ξ_t + θ(μ - ξ_t) + σ N(0,1).
+    Reset to μ at episode boundaries. ~1/θ-step temporal correlation.
+    """
+
+    def __init__(self, action_dim, theta=OU_THETA, sigma=OU_SIGMA, mu=OU_MU):
+        self.action_dim = action_dim
+        self.theta = theta
+        self.sigma = sigma
+        self.mu = mu
+        self.state = np.full(action_dim, mu, dtype=np.float32)
+
+    def reset(self):
+        self.state[:] = self.mu
+
+    def sample(self):
+        noise = np.random.randn(self.action_dim).astype(np.float32)
+        self.state = self.state + self.theta * (self.mu - self.state) + self.sigma * noise
+        return self.state.copy()
 
 
 # ---------------------------------------------------------------------------
@@ -580,14 +614,24 @@ obs, info = env.reset()
 episode_step = 0
 episode_reward = 0.0
 
+# OU exploration noise (training only). Eval uses deterministic policy via
+# evaluate.py — no OU noise there.
+ou_noise = OUNoise(action_dim) if USE_OU_NOISE else None
+
 while True:
     t0 = time.time()
 
-    # Select action
+    # Select action. Exp 10: deterministic SAC mean + pure OU time-correlated
+    # noise (DDPG recipe). Exp 9 stacking OU on SAC's stochastic sample
+    # diluted the time-correlation signal; using the mean isolates OU.
     if total_steps < STEPS_BEFORE_LEARNING:
         action = env.action_space.sample()
     else:
-        action = agent.select_action(obs, deterministic=False)
+        action = agent.select_action(
+            obs, deterministic=DETERMINISTIC_BEHAVIOR_POLICY
+        )
+        if ou_noise is not None:
+            action = np.clip(action + ou_noise.sample(), -1.0, 1.0)
 
     # Environment step
     next_obs, reward, terminated, truncated, info = env.step(action)
@@ -619,6 +663,8 @@ while True:
         obs, info = env.reset()
         episode_step = 0
         episode_reward = 0.0
+        if ou_noise is not None:
+            ou_noise.reset()
 
     # Learning
     if total_steps >= STEPS_BEFORE_LEARNING and total_steps % UPDATE_EVERY == 0:

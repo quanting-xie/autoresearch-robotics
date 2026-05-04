@@ -392,10 +392,7 @@ class SACAgent:
 
         # Entropy tuning
         if AUTO_ALPHA:
-            # Halved from -action_dim to keep auto-alpha from collapsing to ~0
-            # under sparse rewards: exp 1 (alpha 1.0->0.12) and exp 2 (1.0->0.002)
-            # both saw exploration die before grasping was discovered.
-            self.target_entropy = -action_dim / 2
+            self.target_entropy = -action_dim
             self.log_alpha = torch.zeros(1, requires_grad=True, device=device)
             self.alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=LR_ALPHA)
             self.alpha = self.log_alpha.exp().item()

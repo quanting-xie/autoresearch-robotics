@@ -1,7 +1,7 @@
 {
   "best_commit": "ed69e5e",
   "best_success_rate": 0.1,
-  "total_experiments": 2,
+  "total_experiments": 3,
   "experiments": [
     {
       "id": 1,
@@ -74,6 +74,42 @@
       "status": "discard",
       "hypothesis_confirmed": false,
       "lesson_learned": "LayerNorm + AUTO_ALPHA is a hostile combination on this task: LN normalizes pre-activations, which lets the squashed-Gaussian policy reach the auto-alpha target entropy with very low alpha. Exploration vanishes faster than baseline, and the LN'd critic actually fits worse. Throughput penalty (32% slower) compounds the problem under a fixed wall-clock budget. The exp 1 finding stands: exploration / grasping discovery is the dominant bottleneck, optimization-stability tweaks alone make it worse."
+    },
+    {
+      "id": 3,
+      "commit": "a2266b6",
+      "timestamp": "2026-05-03T20:45:05",
+      "agent": "opus-4.7",
+      "description": "Halve magnitude of target_entropy: SACAgent.target_entropy = -action_dim/2 (was -action_dim).",
+      "hypothesis": "By raising target_entropy magnitude (sic \u2014 see lesson_learned: I had the sign convention BACKWARDS), keep auto-alpha from collapsing so exploration persists past 8K steps. Predicted success_rate 0.10 -> 0.15-0.40 with alpha plateauing >= 0.05.",
+      "changes_made": [
+        "SACAgent.__init__: self.target_entropy = -action_dim/2 (was -action_dim)"
+      ],
+      "metrics": {
+        "success_rate": 0.0,
+        "mean_reward": -50.0,
+        "mean_distance": 0.2085853332120889,
+        "total_steps": 263232,
+        "total_episodes": 5264,
+        "total_updates": 262232,
+        "peak_vram_mb": 27.40087890625
+      },
+      "vlm_feedback_summary": "Hypothesis NOT confirmed and rooted in a sign-convention mistake. Alpha collapsed FURTHER than baseline (0.009 vs 0.12), critic_loss diverged to ~50, gripper sometimes retreats from cube instead of reaching it. Mean_distance is ~baseline (0.209 vs 0.214).",
+      "vlm_failure_modes": [
+        "alpha_super_collapse: alpha 1.0 -> 0.009 (vs baseline 0.12) because I LOWERED H_target instead of raising it",
+        "critic_divergence: critic_loss explodes to ~50 by end (vs baseline ~0.15) \u2014 Q-values diverge with no entropy regularization to constrain them",
+        "policy_retreat: in some eval episodes the gripper retreats upward away from cube \u2014 reach itself is mildly destabilized",
+        "sign_convention_error: code uses target_entropy = -H_target. -action_dim/2 means H_target=2 (lower), not 8 (higher)."
+      ],
+      "vlm_suggestions": [
+        "If revisiting this lever: target_entropy = -action_dim*2 = -8 to RAISE H_target",
+        "But the more impactful next move is dense reward for training (eval stays sparse)",
+        "Dense training reward attacks the actual bottleneck: even tiny accidental cube nudges produce useful reward gradient",
+        "If dense reward works, then ablate alpha settings on top"
+      ],
+      "status": "discard",
+      "hypothesis_confirmed": false,
+      "lesson_learned": "Two lessons. (1) SIGN CONVENTION: in this codebase, `target_entropy` field is the NEGATIVE of the entropy target H_target (used in alpha update as log_alpha * (log_prob + target_entropy)). To raise exploration, make it MORE negative. (2) MORE IMPORTANT: even a corrected exploration tweak only delays alpha collapse. Random 4D action exploration almost never produces a coordinated grasp+lift event in 30 min, so HER's achieved_goal trajectory is essentially constant and the manipulation signal never emerges. The next experiment must produce signal even without successful grasping \u2014 dense reward for training is the cleanest way to do that."
     }
   ],
   "insights": [
@@ -81,17 +117,21 @@
     "HER's effectiveness on FetchPickAndPlace is contingent on the cube moving at least sometimes. If the policy never grasps, HER degenerates into goal-near-cube-start relabeling and only teaches the reach component.",
     "Auto-alpha with target_entropy=-action_dim=-4 collapses alpha from 1.0 to ~0.12 within 8K steps \u2014 exploration is gone well before any manipulation discovery is possible.",
     "LayerNorm in actor under AUTO_ALPHA causes alpha to collapse even further (~0.002), because LN lets the squashed Gaussian satisfy the target entropy cheaply. LN also slows throughput ~30% on this small network.",
-    "Optimization-stability tweaks (LN-only) cannot rescue this run as long as exploration is dead; the bottleneck order is exploration > optimization."
+    "Optimization-stability tweaks (LN-only) cannot rescue this run as long as exploration is dead; the bottleneck order is exploration > optimization.",
+    "CODEBASE CONVENTION: SACAgent.target_entropy is the NEGATIVE of H_target (used in alpha_loss = -log_alpha * (log_prob + target_entropy)). target_entropy = -4 means H_target = 4. To increase exploration, make target_entropy MORE negative (e.g., -8).",
+    "Without any exploration regularization (alpha near 0), the critic Q-values can diverge to ~50 \u2014 entropy bonus also acts as a soft constraint on Q-magnitude."
   ],
   "failed_directions": [
-    "LayerNorm in BOTH actor + critic with AUTO_ALPHA on. Hurts reach, kills alpha, slows throughput. May still be worth trying critic-only LN once exploration is fixed."
+    "LayerNorm in BOTH actor + critic with AUTO_ALPHA on. Hurts reach, kills alpha, slows throughput. May still be worth trying critic-only LN once exploration is fixed.",
+    "Halving target_entropy magnitude (target_entropy = -action_dim/2). Counter-productive in this code's sign convention: lowers H_target, alpha collapses further, critic diverges. To go the other way, use -action_dim*2."
   ],
   "promising_directions": [
-    "Raise target_entropy from -action_dim to -action_dim/2 (next, smallest fix)",
-    "Switch to fixed alpha = 0.2 (simpler, no auto tuning)",
-    "Gripper-biased exploration noise during warmup",
-    "UTD > 1 (after exploration is fixed)",
+    "DENSE REWARD FOR TRAINING (next): replace sparse env reward with -||achieved_goal - desired_goal|| in buffer.add and ReplayBuffer._compute_reward. Eval is sparse via evaluate.py \u2014 unaffected.",
+    "Fixed alpha = 0.2 (simpler, no auto tuning) \u2014 combine with dense reward if dense alone isn't enough",
+    "Gripper-biased OU exploration noise during warmup",
+    "UTD > 1 (after the signal problem is fixed)",
     "MHER(lambda) for n-step HER without bias",
-    "Critic-only LN (revisit once exploration works)"
+    "Critic-only LN (revisit once exploration works)",
+    "If revisiting auto-alpha: target_entropy = -action_dim*2 = -8 (CORRECT direction this time)"
   ]
 }

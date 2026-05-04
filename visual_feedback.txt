@@ -1,58 +1,53 @@
-Experiment 2 — LayerNorm in actor + critic hidden layers
-========================================================
+Experiment 3 — target_entropy = -action_dim/2 (was -action_dim)
+================================================================
 eval_success_rate: 0.00 (was 0.10 baseline)
-mean_reward: -50.00 (was -45.0)
-mean_distance: 0.303 (was 0.214)
-training_seconds: 1800   |  total_steps: 207,496 (was 279,079 — 26% slower)
-total_updates: 206,496   |  num_params: 426,250
+mean_reward: -50.00   |   mean_distance: 0.209
+training_seconds: 1800   |   total_steps: 263,232 (vs 279K baseline; 6% slower)
+total_updates: 262,232
 
-VERDICT: WORSE. Discard.
+VERDICT: WORSE. Discard. Plus a sign-convention mistake on my part.
 
-What I see in the frames vs exp 1
----------------------------------
-- Exp 1's gripper consistently descended to ON the cube (reach was solved).
-- Exp 2's gripper hovers ABOVE or BESIDE the cube, frequently retreating
-  upward / outward late in the episode. Reach is now WORSE, not better.
-- ep0_end: gripper ends right next to the cube but not on it.
-- ep1_end: arm fully retreats, ends pointed away from the cube.
-- ep2_end: gripper landed beside cube on table.
-Both grasping AND reach quality regressed.
-
-What the training log tells me
-------------------------------
-- alpha collapsed harder under LN: 1.0 -> 0.002 (vs baseline 1.0 -> 0.12).
-  Policy is essentially deterministic well before the halfway point.
-- critic_loss settles around 1.1-1.2 (vs baseline ~0.1-0.2). LN on the critic
-  did NOT stabilize it — it shifted the loss landscape such that the critic
-  fits worse, not better.
-- actor_loss is positive +1.85 throughout, consistent with Q being very
-  negative (always failing) under the squashed-Gaussian SAC objective.
-- Throughput: 170 -> 115 steps/sec (-32%). Under a fixed time budget this
-  alone reduced data by ~26% which doesn't help.
-
-Why I think LN hurt here
+What I see in the frames
 ------------------------
-Three plausible mechanisms, in order of confidence:
-1. **Auto-alpha + LN interaction**: LN constrains pre-activation magnitudes,
-   which apparently lets the squashed-Gaussian achieve high entropy *cheaply*
-   (action distribution stays diffuse). Auto-alpha sees entropy already at /
-   above target, gradient drives alpha down hard. Result: low alpha, no
-   exploration bonus, and the diffuse policy never gets sharpened toward
-   useful actions.
-2. **Critic LN + tanh-squashed targets**: small Q-target shifts get amplified
-   through the LN'd critic, raising critic_loss variance.
-3. **Throughput hit**: 26% less data over the same time budget directly
-   harms learning given the data-bound regime here.
+- ep0_end: gripper has RETREATED upward, well away from cube. Worse than
+  baseline's "descend to cube" behaviour.
+- ep1_end: gripper is on table at cube (similar to baseline reach).
+- ep2_end: gripper on table next to cube (similar to baseline reach).
+Behaviour is more variable than baseline — sometimes the policy retreats
+instead of reaching. Consistent with the unstable critic.
+
+The big training-log surprise
+-----------------------------
+- Alpha collapsed even further than baseline: 1.0 -> 0.009 (vs baseline 0.12).
+- Critic loss EXPLODED to ~50 by end of run (vs baseline ~0.15). Q-values
+  are diverging.
+- This is the OPPOSITE of what I predicted. I expected target_entropy=-2 to
+  RAISE alpha and keep more exploration alive.
+
+SIGN CONVENTION MISTAKE (root cause)
+------------------------------------
+The code's `target_entropy = -action_dim` actually means H_target = +action_dim
+(the negative-of-target-entropy convention used in the alpha update). So:
+  - target_entropy = -4  =>  H_target = 4   (baseline)
+  - target_entropy = -2  =>  H_target = 2   (exp 3 — LESS entropy, not more!)
+  - target_entropy = -8  =>  H_target = 8   (would be MORE entropy)
+I drove H_target DOWN, so auto-alpha pushed alpha down further to match a
+narrower distribution. With alpha near zero AND no exploration bonus, the
+critic's Q-targets drift unchecked → divergence.
 
 Updated planning
 ----------------
-1. The exp 1 lesson is reinforced: the *exploration* axis (alpha collapse) is
-   the dominant bottleneck, NOT optimization quality. Optimization-focused
-   tweaks (LN, more updates, etc.) won't save us if the policy can't discover
-   grasping in the first place.
-2. Next experiment must attack alpha collapse directly. Cheapest single
-   change: target_entropy = -action_dim/2 = -2 (was -4). Auto-alpha will
-   converge to a non-zero alpha that maintains useful exploration.
-3. If exp 3 also fails, drop auto-alpha entirely and use fixed alpha = 0.2
-   (classic pre-SAC2018 setting). After that, gripper-biased exploration
-   noise during warmup.
+1. Lesson recorded: H_target = -target_entropy. To increase exploration,
+   make target_entropy MORE negative (e.g., -8). To decrease, less negative.
+2. But — even a corrected exploration tweak only buys us time before alpha
+   stabilizes. The real bottleneck (exp 1's lesson) is that random exploration
+   in 4D action space almost never produces a coordinated grasp+lift event,
+   so HER never has a non-trivial achieved_goal trajectory to learn from.
+3. Next experiment goes more radical: DENSE REWARD FOR TRAINING.
+   Replace sparse env reward with -||achieved_goal - desired_goal|| in the
+   replay buffer. Eval reward stays sparse (evaluate.py is read-only). Even
+   tiny accidental cube nudges produce non-zero reward gradient -> signal
+   for "cube closer to goal is good." This is the standard ablation in the
+   Andrychowicz HER paper and directly attacks the signal starvation issue.
+4. If dense reward also fails, fall back to fixed alpha = 0.2 + dense, then
+   gripper-biased OU exploration noise.

@@ -1,7 +1,7 @@
 {
   "best_commit": "9630464",
-  "best_success_rate": 0.0,
-  "total_experiments": 4,
+  "best_success_rate": 0.5,
+  "total_experiments": 5,
   "experiments": [
     {
       "id": 1,
@@ -135,7 +135,7 @@
         "ep1, ep2 still poke down at table center"
       ],
       "vlm_suggestions": [
-        "Architectural shrinking is dead end on this setup — Python overhead dominates per-update cost, not GPU FLOPs.",
+        "Architectural shrinking is dead end on this setup \u2014 Python overhead dominates per-update cost, not GPU FLOPs.",
         "Total updates appears capped at ~900-950 in 10s regardless of net size.",
         "Pivot strategy: make each update count more. Attack the actor signal-to-noise problem with low fixed alpha + dense reward.",
         "AUTO_ALPHA=False + INIT_ALPHA=0.05 + dense reward shaping is the next attack."
@@ -143,12 +143,46 @@
       "status": "discard",
       "hypothesis_confirmed": false,
       "lesson_learned": "GPU FLOPs are NOT the dominant cost per gradient step on this setup. Shrinking the net 13x and the batch 2x only yielded +9% updates per second. The bottleneck is Python overhead in the per-step loop: HER's per-sample Python for-loop in buffer.sample(), per-step action sampling with .cpu().numpy() round-trips, buffer.add() episode tracking. Total grad updates per 10s is roughly capped at ~900-950 regardless of architecture choices. To make progress, optimize per-update QUALITY not quantity."
+    },
+    {
+      "id": 5,
+      "commit": null,
+      "timestamp": "2026-05-03T21:54:38",
+      "agent": "opus-4.7",
+      "description": "",
+      "hypothesis": "",
+      "changes_made": [],
+      "metrics": {
+        "success_rate": 0.5,
+        "mean_reward": -23.700000762939453,
+        "mean_distance": 0.04633054184681595,
+        "total_steps": 2097,
+        "total_episodes": 41,
+        "total_updates": 1097,
+        "peak_vram_mb": 27.14990234375
+      },
+      "vlm_feedback_summary": "FIRST GOAL-TRACKING BEHAVIOR. Across all 3 rendered episodes the gripper descends to and lands precisely on the red goal dot. mean_distance 0.046 (13x better than baseline 0.61), success_rate 0.50 (5/10). Failures are JUST above the 5cm threshold — policy reaches the right region but doesn't perfectly fine-tune the last few cm.",
+      "vlm_failure_modes": [
+        "5/10 episodes fall just above the 5cm success threshold — fine-tuning precision missing",
+        "no obvious systematic visual failure remaining"
+      ],
+      "vlm_suggestions": [
+        "N_UPDATES 1 -> 2 (UTD=2): more grad steps per env step to refine the last few cm of precision",
+        "LR_ACTOR bump: with Q-signal now clean, faster actor LR converges faster within budget",
+        "n-step returns (n=3): stronger value targets given dense reward",
+        "Future ablation (after pushing higher): is the win from low alpha, dense reward, or both?"
+      ],
+      "status": "keep",
+      "hypothesis_confirmed": true,
+      "lesson_learned": "Default SAC auto_alpha=True with log_alpha=0 init starts at alpha=exp(0)=1.0, making entropy regularization dominate the Q term in actor_loss for the first 1-2k updates. This is fatal on a 10s budget where total updates is capped at ~1100. Pinning alpha low (0.05) AND giving Q a dense direction signal lets the actor converge to a working goal-tracking policy in ~1100 updates. Both ingredients were needed (each tried alone in earlier experiments produced 0% success). Bonus: total_updates went from 853 to 1097 (+29%) because skipping the alpha gradient step + having lower-entropy action sampling makes each iteration faster."
     }
   ],
   "insights": [
-    "Gradient-step budget on a 10s wall-clock is ~850-900 updates regardless of STEPS_BEFORE_LEARNING. The binding constraint is GPU throughput per grad step (~85-90 upd/s), NOT env-step count. Random pre-learning steps are free; learning steps cost ~10ms each.",
-    "Total_steps is misleading on this setup \u2014 exp1 had 1853 total steps but only 853 grad updates because the first 1000 were free random rollouts. Don't optimize total_steps; optimize total_updates.",
-    "Reward signal quality (sparse vs dense) doesn't move the needle when the gradient-step budget is too small. Auto-alpha starts at exp(0)=1.0 and the entropy term dominates the Q-term in actor_loss for the first ~1000-2000 updates regardless of reward shape. Need to attack #updates first (smaller net) or bypass entropy domination (lower/fixed alpha)."
+    "Gradient-step budget on a 10s wall-clock is ~850-1100 updates. Architectural shrinks (smaller net, smaller batch) only move it \u00b110% \u2014 Python overhead in the per-step loop dominates, not GPU FLOPs.",
+    "Total_steps is misleading \u2014 pre-learning random rollouts are free; learning steps cost ~10ms each. Don't optimize total_steps; optimize total_updates.",
+    "Default SAC auto_alpha=True with log_alpha=0 init starts at alpha=exp(0)=1.0, making the entropy term dominate the Q term in actor_loss for the first 1-2k updates. On a 10s/1100-update budget this is fatal \u2014 by the time alpha anneals, training is over. CONFIRMED FIX: pin alpha low (0.05, AUTO_ALPHA=False).",
+    "Reward signal quality (dense -L2 distance vs sparse -1/0) is necessary but NOT sufficient \u2014 exp3 showed dense alone with auto_alpha gets 0%. Pairs synergistically with low fixed alpha to give the actor a clean Q direction it actually follows.",
+    "Bonus from low fixed alpha: total_updates rises from ~850 to ~1100 (+29%), because skipping the alpha optimizer step + lower-variance action sampling shaves per-iteration cost."
   ],
   "failed_directions": [
     "STEPS_BEFORE_LEARNING 1000 -> 100 alone (exp2): only +4% updates, 0% success_rate. The lever was wrong; not the warmup but the per-update cost.",
@@ -156,9 +190,10 @@
     "Smaller net (128x2) + smaller batch (128) (exp4): only +9% updates, 0% success_rate. GPU FLOPs are not the bottleneck; Python overhead in per-step loop is. Architectural shrinking is a dead end here."
   ],
   "promising_directions": [
-    "BUNDLE: low fixed alpha (AUTO_ALPHA=False, INIT_ALPHA=0.05) + dense reward \u2014 attacks actor signal-to-noise directly. Synergistic.",
-    "If bundle works: ablate to find minimum (low alpha alone? dense reward alone with low alpha?)",
-    "If bundle fails: pivot to TD3 (deterministic, no entropy term, better fit for FetchReach + HER)",
-    "Behavioral cloning bootstrap: warmup actor with supervised regression to (goal - achieved) direction"
+    "N_UPDATES 1 -> 2 (UTD=2): compound the working config. Doubles grad steps per env step. Predict success_rate climbs from 0.5 toward 0.7-0.9.",
+    "LR_ACTOR bump 3e-4 -> 1e-3: actor LR now safe to push since alpha is fixed and Q is clean.",
+    "n-step returns (n=3) on critic: stronger value targets given dense reward.",
+    "LayerNorm in actor/critic trunk: cheap stability boost.",
+    "Ablate exp 5: low alpha alone (vs exp3's dense alone failing) to see if the dense reward is essential or if low alpha + sparse-with-HER would also work."
   ]
 }

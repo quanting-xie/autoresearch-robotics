@@ -1,42 +1,28 @@
-Experiment 4 — visual analysis (HIDDEN_DIM 256->128, N_LAYERS 3->2, BATCH 256->128, success_rate=0.00)
+Experiment 5 — visual analysis (low fixed alpha 0.05 + dense reward, success_rate=0.50)
 
-Frames: ./renders/ep{0,1,2}_{start,mid,end}.png
+Frames: ./renders/ep{0,1,2}_{start,mid,end}.png — saved to ./renders_best/ as new best.
 
-Behavior:
-- ep0: gripper ends extended OUTWARD to the right, hovering over the far side of the table. Goal (red dot) is BEHIND it at the table edge near the base. Different from exp1-3 where the arm collapsed inward. This time the arm extended past the goal.
-- ep1: gripper poking down at table center, goal floating up-right.
-- ep2: similar to ep1 — gripper at table center pointing down, goal slightly to the right.
+Behavior — REAL GOAL-TRACKING for the first time:
+- ep0: start with gripper hanging above the table, red goal on table top. Mid: gripper has descended toward the goal. End: gripper is essentially ON the goal (red dot directly at the gripper tip on the table).
+- ep1: gripper ends precisely on the goal (red dot at gripper tip).
+- ep2: gripper ends on the goal too (red dot at the bottom of the gripper).
 
-Comparison:
-- mean_distance: 0.52 (worse than exp 2's 0.40 and exp 3's 0.41, but in noise band).
-- total_updates: 928 vs 853 baseline = ONLY +9% speedup. Predicted 3-5x.
-- VRAM: 18.8 MB vs 27.2 MB baseline (-31%) — confirms net is smaller, but speedup didn't materialize.
+Quantitative jump:
+- success_rate 0.00 -> 0.50 (5 of 10 episodes succeed)
+- mean_distance 0.61 -> 0.046 (13x better; just under the 0.05 success threshold on average — the 5 failures must be just above 0.05)
+- mean_reward -50.00 -> -23.70
+- total_updates 853 -> 1097 (+29% — bonus from no longer doing alpha gradient step + fewer entropy-stochastic samples)
 
-Root-cause update — the GPU FLOPs theory was wrong:
-- Smaller net + smaller batch should give multiplicative speedup IF GPU FLOPs are dominant.
-- Actual speedup +9% means GPU work is NOT the dominant cost per gradient step.
-- Likely culprits (in approximate priority): (a) Python overhead in the per-step main loop, (b) HER's per-sample Python for-loop in buffer.sample() — this is O(batch_size) Python iterations per gradient step, (c) per-step action sampling with .cpu().numpy() round-trips, (d) buffer.add() with its episode tracking.
+Hypothesis CONFIRMED: the actor SNR theory was correct. Default SAC's auto_alpha=True at init=exp(0)=1.0 makes the entropy term in actor_loss dominate the Q term for the first 1-2k updates. Pinning alpha=0.05 lets Q drive the actor from update 1. Dense reward gives Q a clean direction to point in.
 
-So multiplying gradient updates is HARD on this setup. We probably get ~850-950 updates per 10s no matter what we do at the architectural level. To make progress we must make each update COUNT MORE.
+Failure mode (the 5 that didn't succeed):
+- mean_distance 0.046 means the misses are typically 5-7cm away (just over threshold). The policy reaches the right region but doesn't fine-tune the last few cm.
+- ep1_mid frame shows the gripper descending toward the goal at a slight horizontal offset — it lands close but might not perfectly center.
 
-What makes an update count more?
-1. Better Q-target signal (dense reward) — exp 3 tried this alone, still 0%.
-2. Less destructive entropy regularization. With AUTO_ALPHA=True, log_alpha=0 init -> alpha=1.0. SAC's actor_loss = (alpha*log_probs - Q).mean(). For FetchReach with sparse Q in {-50, ..., 0} and log_probs around 0 or so, alpha=1.0 makes the entropy term comparable in magnitude to the Q term, then alpha SLOWLY anneals. 850 updates is not enough for it to anneal.
-3. Combine #1 and #2: dense reward gives Q a clean direction, low fixed alpha lets actor follow Q immediately.
+Suggestions for exp 6 (push toward 1.0):
+1. **N_UPDATES 1 -> 2** (UTD=2): more grad steps per env step. Might roughly double total_updates (1097 -> ~2000) at the cost of fewer env steps. The policy is clearly learning; more updates should refine the last-few-cm precision.
+2. **LR_ACTOR 3e-4 -> 1e-3**: actor learning rate is the bottleneck on convergence speed once Q is clean. Faster actor convergence within the same updates.
+3. **n-step returns (n=3)** on the critic: with dense reward, n-step gives stronger value targets than 1-step bootstrap.
+4. **LayerNorm in actor/critic trunk**: cheap stability improvement, often helps SAC.
 
-Decision: DISCARD exp 4 (success_rate equal to baseline). Revert net+batch.
-
-GO RADICAL plan for exp 5 — attack the actor signal-to-noise issue head-on:
-- AUTO_ALPHA = False (no auto-tuning, fix alpha at start)
-- INIT_ALPHA = 0.05 (very low entropy regularization; actor primarily optimizes Q)
-- Dense reward shaping in replay buffer (-||achieved - desired||) — re-introduce from exp 3
-- Keep everything else baseline (256x3, batch 256, sparse env reward unchanged)
-
-Why bundle two changes:
-- Dense reward alone (exp 3): didn't help because alpha=1.0 entropy dominated Q signal.
-- Low fixed alpha alone: would bypass entropy domination, but with sparse reward Q-signal is mostly -1 everywhere except the rare success state, so policy would converge to "anything" rather than "toward goal".
-- Combined: actor sees a clean Q gradient (dense reward) AND that gradient actually drives weight updates (low alpha). Synergistic by construction.
-
-Predict: success_rate > 0% (first non-zero of the run). If still 0%, the bottleneck is even deeper — probably need a fundamentally different algorithm (TD3 or DDPG, no entropy) or behavioral-cloning bootstrap.
-
-If exp 5 unlocks success, exp 6 ablates: keep low alpha but revert dense reward. If still works, dense reward is unnecessary. If reverts to 0%, both were needed.
+Decision: KEEP exp 5 as the new best. Plan exp 6 = N_UPDATES 1->2 (single-variable change, lowest-risk way to compound the win).

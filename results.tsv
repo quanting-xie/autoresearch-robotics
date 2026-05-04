@@ -3,3 +3,4 @@ commit	success_rate	mean_reward	vlm_summary	status	description
 a2c73ad	0.000000	-50.0	still no goal-tracking; arm collapses or retracts upward	discard	STEPS_BEFORE_LEARNING 1000->100 (only +4% updates; bottleneck was GPU per-update, not warmup)
 f7d61cf	0.000000	-50.0	visually identical to baseline; dense reward did not change policy	discard	dense reward shaping (-distance) in replay buffer (signal quality didn't beat too-few-updates)
 0fa95bd	0.000000	-50.0	new failure mode (arm extends past goal); still no goal-tracking	discard	smaller net 128x2 + batch 128 (only +9% updates; bottleneck is Python overhead, not GPU)
+309ddab	0.500000	-23.7	gripper lands precisely on goal across all 3 rendered episodes	keep	BREAKTHROUGH: AUTO_ALPHA=False + INIT_ALPHA=0.05 + dense reward (actor SNR fix)

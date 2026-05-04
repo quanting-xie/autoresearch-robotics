@@ -132,9 +132,9 @@ class Actor(nn.Module):
                  n_layers=N_LAYERS, activation=ACTIVATION):
         super().__init__()
         act_cls = get_activation(activation)
-        layers = [nn.Linear(obs_dim, hidden_dim), nn.LayerNorm(hidden_dim), act_cls()]
+        layers = [nn.Linear(obs_dim, hidden_dim), act_cls()]
         for _ in range(n_layers - 1):
-            layers.extend([nn.Linear(hidden_dim, hidden_dim), nn.LayerNorm(hidden_dim), act_cls()])
+            layers.extend([nn.Linear(hidden_dim, hidden_dim), act_cls()])
         self.trunk = nn.Sequential(*layers)
         self.mean_head = nn.Linear(hidden_dim, action_dim)
         self.log_std_head = nn.Linear(hidden_dim, action_dim)
@@ -183,16 +183,16 @@ class Critic(nn.Module):
         input_dim = obs_dim + action_dim
 
         # Q1
-        q1_layers = [nn.Linear(input_dim, hidden_dim), nn.LayerNorm(hidden_dim), act_cls()]
+        q1_layers = [nn.Linear(input_dim, hidden_dim), act_cls()]
         for _ in range(n_layers - 1):
-            q1_layers.extend([nn.Linear(hidden_dim, hidden_dim), nn.LayerNorm(hidden_dim), act_cls()])
+            q1_layers.extend([nn.Linear(hidden_dim, hidden_dim), act_cls()])
         q1_layers.append(nn.Linear(hidden_dim, 1))
         self.q1 = nn.Sequential(*q1_layers)
 
         # Q2
-        q2_layers = [nn.Linear(input_dim, hidden_dim), nn.LayerNorm(hidden_dim), act_cls()]
+        q2_layers = [nn.Linear(input_dim, hidden_dim), act_cls()]
         for _ in range(n_layers - 1):
-            q2_layers.extend([nn.Linear(hidden_dim, hidden_dim), nn.LayerNorm(hidden_dim), act_cls()])
+            q2_layers.extend([nn.Linear(hidden_dim, hidden_dim), act_cls()])
         q2_layers.append(nn.Linear(hidden_dim, 1))
         self.q2 = nn.Sequential(*q2_layers)
 

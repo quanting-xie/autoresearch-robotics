@@ -1,2 +1,3 @@
 commit	success_rate	mean_reward	vlm_summary	status	description
 ed69e5e	0.100000	-45.0	reach learned, gripper never closes/lifts; cube never moves	keep	baseline (unmodified train.py)
+bc67ee6	0.000000	-50.0	LN crashed reach; alpha collapsed to 0.002; 32% slower	discard	LayerNorm in actor+critic hidden layers

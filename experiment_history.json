@@ -1,7 +1,7 @@
 {
   "best_commit": "ed69e5e",
   "best_success_rate": 0.1,
-  "total_experiments": 1,
+  "total_experiments": 2,
   "experiments": [
     {
       "id": 1,
@@ -20,7 +20,7 @@
         "total_updates": 278079,
         "peak_vram_mb": 27.40087890625
       },
-      "vlm_feedback_summary": "Reach is learned (gripper consistently moves to cube vicinity) but grasping and lifting are NOT — cube never moves, so HER relabeling has no manipulation signal. Most successes come from rare goals near the cube's start.",
+      "vlm_feedback_summary": "Reach is learned (gripper consistently moves to cube vicinity) but grasping and lifting are NOT \u2014 cube never moves, so HER relabeling has no manipulation signal. Most successes come from rare goals near the cube's start.",
       "vlm_failure_modes": [
         "no_grasping: gripper hovers/descends onto cube but never closes fingers",
         "no_lifting: arm never raises after touching cube, so mid-air goals are unreachable",
@@ -32,24 +32,66 @@
         "Higher UTD ratio (e.g., 4 gradient updates per env step)",
         "Slower alpha collapse: target_entropy = -action_dim/2, or fixed alpha=0.2",
         "Bias exploration noise toward the gripper action dim during warmup",
-        "MHER(lambda) n-step relabeling — bigger lift; defer until cheaper levers exhausted"
+        "MHER(lambda) n-step relabeling \u2014 bigger lift; defer until cheaper levers exhausted"
       ],
       "status": "keep",
       "hypothesis_confirmed": true,
       "lesson_learned": "Baseline lands at 10% success. The dominant failure is exploration / grasping discovery, not optimization quality: HER cannot help with the manipulation phase if the cube never moves in rollouts. Future experiments should attack either (a) exploration around the gripper dimension or (b) extracting more signal per data point (UTD, normalization), since data quantity is fixed."
+    },
+    {
+      "id": 2,
+      "commit": "bc67ee6",
+      "timestamp": "2026-05-03T20:11:57",
+      "agent": "opus-4.7",
+      "description": "Add nn.LayerNorm after each hidden Linear in Actor.trunk and Critic.q1/q2 (before activation). Output heads unchanged.",
+      "hypothesis": "LayerNorm in actor + critic stabilizes the critic under SAC's high update count (Bjorck et al. 2021), letting weak grasping signal propagate without being washed out by critic instability. Predicted success_rate to move from 0.10 to 0.15-0.30.",
+      "changes_made": [
+        "Actor.trunk: insert nn.LayerNorm(hidden_dim) between each Linear and activation",
+        "Critic.q1 and Critic.q2: insert nn.LayerNorm(hidden_dim) between each Linear and activation"
+      ],
+      "metrics": {
+        "success_rate": 0.0,
+        "mean_reward": -50.0,
+        "mean_distance": 0.3030276753702442,
+        "total_steps": 207496,
+        "total_episodes": 4149,
+        "total_updates": 206496,
+        "peak_vram_mb": 29.75048828125
+      },
+      "vlm_feedback_summary": "Hypothesis NOT confirmed: success rate regressed 0.10 -> 0.00. Reach itself degraded (gripper hovers above/beside cube, sometimes retreats away). Alpha collapsed even harder under LN (1.0 -> 0.002 vs baseline 0.12), critic_loss settled higher (~1.2 vs ~0.15), throughput dropped 32%.",
+      "vlm_failure_modes": [
+        "alpha_super_collapse: LN appears to let the squashed-Gaussian achieve target entropy cheaply, so auto-alpha drives alpha to ~0 -> zero exploration bonus",
+        "reach_regression: gripper no longer reliably reaches cube vicinity (worse than baseline)",
+        "critic_loss_inflation: LN'd critic settles at ~1.2 loss vs baseline ~0.15, suggesting LN shifted the loss landscape unfavorably for sparse-reward Q targets",
+        "throughput_hit: 170 -> 115 steps/sec (-32%) under fixed time budget reduces total data by 26%"
+      ],
+      "vlm_suggestions": [
+        "Attack alpha collapse directly (next): target_entropy = -action_dim/2 = -2 instead of -4",
+        "If still bad: fixed alpha = 0.2 (no auto tuning)",
+        "Then: gripper-biased exploration noise during warmup",
+        "Avoid LN in actor when AUTO_ALPHA=True; possibly safe in critic only \u2014 but defer this combo until exploration is fixed"
+      ],
+      "status": "discard",
+      "hypothesis_confirmed": false,
+      "lesson_learned": "LayerNorm + AUTO_ALPHA is a hostile combination on this task: LN normalizes pre-activations, which lets the squashed-Gaussian policy reach the auto-alpha target entropy with very low alpha. Exploration vanishes faster than baseline, and the LN'd critic actually fits worse. Throughput penalty (32% slower) compounds the problem under a fixed wall-clock budget. The exp 1 finding stands: exploration / grasping discovery is the dominant bottleneck, optimization-stability tweaks alone make it worse."
     }
   ],
   "insights": [
-    "Reach is solved within 30 min single-env; manipulate is not — the bottleneck is grasping discovery, not reaching.",
+    "Reach is solved within 30 min single-env; manipulate is not \u2014 the bottleneck is grasping discovery, not reaching.",
     "HER's effectiveness on FetchPickAndPlace is contingent on the cube moving at least sometimes. If the policy never grasps, HER degenerates into goal-near-cube-start relabeling and only teaches the reach component.",
-    "Auto-alpha with target_entropy=-action_dim=-4 collapses alpha from 1.0 to ~0.12 within 8K steps — exploration is gone well before any manipulation discovery is possible."
+    "Auto-alpha with target_entropy=-action_dim=-4 collapses alpha from 1.0 to ~0.12 within 8K steps \u2014 exploration is gone well before any manipulation discovery is possible.",
+    "LayerNorm in actor under AUTO_ALPHA causes alpha to collapse even further (~0.002), because LN lets the squashed Gaussian satisfy the target entropy cheaply. LN also slows throughput ~30% on this small network.",
+    "Optimization-stability tweaks (LN-only) cannot rescue this run as long as exploration is dead; the bottleneck order is exploration > optimization."
   ],
-  "failed_directions": [],
+  "failed_directions": [
+    "LayerNorm in BOTH actor + critic with AUTO_ALPHA on. Hurts reach, kills alpha, slows throughput. May still be worth trying critic-only LN once exploration is fixed."
+  ],
   "promising_directions": [
-    "LayerNorm in actor + critic hidden layers (next, cheap)",
-    "UTD > 1 with normalization (REDQ-lite)",
-    "Slow alpha collapse / fixed alpha to keep exploration alive",
+    "Raise target_entropy from -action_dim to -action_dim/2 (next, smallest fix)",
+    "Switch to fixed alpha = 0.2 (simpler, no auto tuning)",
+    "Gripper-biased exploration noise during warmup",
+    "UTD > 1 (after exploration is fixed)",
     "MHER(lambda) for n-step HER without bias",
-    "Gripper-biased exploration noise during warmup"
+    "Critic-only LN (revisit once exploration works)"
   ]
 }

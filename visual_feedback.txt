@@ -1,58 +1,58 @@
-Experiment 1 — baseline SAC+HER on FetchPickAndPlace-v4
-=========================================================
-eval_success_rate: 0.10  |  mean_reward: -45.0  |  mean_distance: 0.214
-training_seconds: 1800   |  total_steps: 279079  |  total_updates: 278079
+Experiment 2 — LayerNorm in actor + critic hidden layers
+========================================================
+eval_success_rate: 0.00 (was 0.10 baseline)
+mean_reward: -50.00 (was -45.0)
+mean_distance: 0.303 (was 0.214)
+training_seconds: 1800   |  total_steps: 207,496 (was 279,079 — 26% slower)
+total_updates: 206,496   |  num_params: 426,250
 
-What I see in the rendered frames
+VERDICT: WORSE. Discard.
+
+What I see in the frames vs exp 1
 ---------------------------------
-- Episode 0: cube and goal are both on the table, very close together. Gripper
-  moves down to the cube area and stays roughly hovering there. Cube does NOT
-  appear to move. This is the kind of episode that contributes the rare
-  successes — when the desired_goal happens to land within 5 cm of the cube's
-  starting position, "do nothing" almost succeeds.
-- Episode 1: cube is on the table; goal (red sphere) is hovering in mid-air to
-  the right of the table — a true pick-and-place goal. Gripper descends near
-  the cube but never grasps and never lifts. Final distance is large.
-- Episode 2: cube on table near front; goal on the table next to the cube.
-  Gripper plunges into the table area at the cube but no grasp / no lift.
-  Cube unmoved.
+- Exp 1's gripper consistently descended to ON the cube (reach was solved).
+- Exp 2's gripper hovers ABOVE or BESIDE the cube, frequently retreating
+  upward / outward late in the episode. Reach is now WORSE, not better.
+- ep0_end: gripper ends right next to the cube but not on it.
+- ep1_end: arm fully retreats, ends pointed away from the cube.
+- ep2_end: gripper landed beside cube on table.
+Both grasping AND reach quality regressed.
 
-Failure modes
--------------
-1. NO GRASPING: across all three episodes the gripper hovers/descends to the
-   cube but never closes the fingers. The 4th action dim (gripper open/close)
-   is essentially never used to grasp.
-2. NO LIFTING: even when the gripper is on the cube, the arm does not raise
-   afterward. So mid-air goals are unreachable.
-3. The reach component (move end-effector to cube vicinity) IS learned —
-   that's the easy half of pick-and-place. The manipulate component is not.
+What the training log tells me
+------------------------------
+- alpha collapsed harder under LN: 1.0 -> 0.002 (vs baseline 1.0 -> 0.12).
+  Policy is essentially deterministic well before the halfway point.
+- critic_loss settles around 1.1-1.2 (vs baseline ~0.1-0.2). LN on the critic
+  did NOT stabilize it — it shifted the loss landscape such that the critic
+  fits worse, not better.
+- actor_loss is positive +1.85 throughout, consistent with Q being very
+  negative (always failing) under the squashed-Gaussian SAC objective.
+- Throughput: 170 -> 115 steps/sec (-32%). Under a fixed time budget this
+  alone reduced data by ~26% which doesn't help.
 
-Why HER didn't rescue this
---------------------------
-HER relabels future achieved_goals (cube positions). But because the cube
-never moves in any rollout, the achieved_goal trajectory is essentially a
-constant — every relabeled "future goal" is just the cube's start position.
-So HER provides plenty of signal for "reach the cube" and almost no signal
-for "move the cube to a target." This is consistent with the visual
-behaviour: reaching is solved, manipulation is not.
+Why I think LN hurt here
+------------------------
+Three plausible mechanisms, in order of confidence:
+1. **Auto-alpha + LN interaction**: LN constrains pre-activation magnitudes,
+   which apparently lets the squashed-Gaussian achieve high entropy *cheaply*
+   (action distribution stays diffuse). Auto-alpha sees entropy already at /
+   above target, gradient drives alpha down hard. Result: low alpha, no
+   exploration bonus, and the diffuse policy never gets sharpened toward
+   useful actions.
+2. **Critic LN + tanh-squashed targets**: small Q-target shifts get amplified
+   through the LN'd critic, raising critic_loss variance.
+3. **Throughput hit**: 26% less data over the same time budget directly
+   harms learning given the data-bound regime here.
 
-The training log also shows alpha collapsing from 1.0 -> 0.12 in the first
-~8K steps (auto-alpha with target_entropy = -action_dim = -4 is aggressive),
-so by the time the policy has the chance to exploit any structure, it is
-nearly deterministic — narrowing the chance of randomly discovering grasping.
-
-Concrete suggestions (ranked)
------------------------------
-1. **LayerNorm in actor + critic** (next experiment): well-supported in
-   recent SAC literature, low risk, may stabilize the critic enough that
-   weak grasping signal isn't washed out. Cheap insurance.
-2. **Higher UTD ratio** (e.g., 4 gradient updates per env step): squeeze
-   more learning out of the data we have. Pairs naturally with LayerNorm.
-3. **Slow alpha collapse / higher target_entropy**: the policy goes
-   near-deterministic too fast for sparse-reward exploration. Try
-   target_entropy = -action_dim/2 or fixed alpha = 0.2.
-4. **Action-space exploration biased toward the gripper dimension**: the
-   gripper dim is binary-ish but treated like the others; biased noise on
-   action[3] during warmup could surface more grasping events.
-5. **n-step returns / MHER(λ)**: bigger lift; revisit if the cheaper
-   levers above don't move the needle.
+Updated planning
+----------------
+1. The exp 1 lesson is reinforced: the *exploration* axis (alpha collapse) is
+   the dominant bottleneck, NOT optimization quality. Optimization-focused
+   tweaks (LN, more updates, etc.) won't save us if the policy can't discover
+   grasping in the first place.
+2. Next experiment must attack alpha collapse directly. Cheapest single
+   change: target_entropy = -action_dim/2 = -2 (was -4). Auto-alpha will
+   converge to a non-zero alpha that maintains useful exploration.
+3. If exp 3 also fails, drop auto-alpha entirely and use fixed alpha = 0.2
+   (classic pre-SAC2018 setting). After that, gripper-biased exploration
+   noise during warmup.

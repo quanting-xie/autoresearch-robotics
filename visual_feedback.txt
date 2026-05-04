@@ -1,0 +1,25 @@
+Experiment 1 — visual analysis (baseline SAC+HER, success_rate=0.00)
+
+Frames analyzed: ./renders/ep{0,1,2}_{start,mid,end}.png
+
+What the robot is doing:
+- ep0: Gripper starts ~10cm from the red goal. By mid the arm has retracted upward and rotated; by end the arm has fully collapsed downward and to the side, gripper poking near table edge. Net: moves AWAY from goal.
+- ep1: Gripper tip starts almost AT the goal (within or near the 5cm success threshold!). By mid the arm has retracted, by end the gripper is poking into the table top. Net: actively walks AWAY from a near-success start.
+- ep2: Same default starting pose, gripper ~10cm from goal. Arm rotates/bends and pushes gripper down to the table. Goal floats untouched.
+
+Failure modes (visible across all 3 episodes):
+- "Walks away from goal" — when the goal is to the right of the gripper, the policy moves the arm DOWN/LEFT instead of right.
+- "Arm collapses into table" — strong downward bias in the policy output. The gripper ends up touching/poking the table top.
+- "No goal-tracking behavior" — the policy ignores the desired_goal portion of the observation. End poses are similar across episodes despite goals being in different positions.
+- "Failed to exploit favorable starts" — in ep1 the gripper starts essentially at the goal, but the deterministic policy moves it away. This means the learned mean action at obs ≈ goal is non-zero in the wrong direction.
+
+Why hypothesis was confirmed:
+- Of 1853 total env steps, 1000 were random pre-learning rollouts. Only 853 SAC gradient updates fired. With sparse {-1,0} reward, HER relabeling, and a 256x3 net (~410k params), 853 updates is well below what SAC needs to even start tracking goals. The policy is effectively untrained — it produces a roughly fixed action regardless of obs.
+
+Concrete suggestions for next experiments (priority order):
+1. STEPS_BEFORE_LEARNING 1000 → 100. Single highest-leverage change. Doubles available grad updates with zero downside on a small replay buffer (HER still works, the transitions just get used immediately).
+2. N_UPDATES 1 → 4 (UTD=4). REDQ-style. Multiplies the effective gradient signal per env step. Slightly increases divergence risk but cheap to revert.
+3. Dense reward shaping in training (-||achieved-desired|| instead of sparse -1/0). Gives nonzero gradient signal on every transition. The eval reward stays sparse (env-defined), so the metric remains comparable.
+4. Lower N_LAYERS 3→2 or HIDDEN_DIM 256→128. The 13-dim obs / 4-dim action probably doesn't need a 410k param net; smaller may train faster wall-clock.
+
+Plan: exp 2 = #1 alone (clean attribution). If it lifts success_rate at all, exp 3 layers #2 on top. If exp 2 still 0.00, jump to #3 (dense reward) which gives the biggest signal change.

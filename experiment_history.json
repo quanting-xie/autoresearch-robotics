@@ -1,0 +1,51 @@
+{
+  "best_commit": "9630464",
+  "best_success_rate": 0.0,
+  "total_experiments": 1,
+  "experiments": [
+    {
+      "id": 1,
+      "commit": "9630464",
+      "timestamp": "2026-05-03T21:41:41",
+      "agent": "opus-4.7",
+      "description": "Baseline SAC+HER, unmodified. 256x3 MLP, batch 256, buffer 200k, HER k=4 future, STEPS_BEFORE_LEARNING=1000, UPDATE_EVERY=1, N_UPDATES=1.",
+      "hypothesis": "Baseline establishes the reference point. Expect low success_rate because the 10s budget combined with STEPS_BEFORE_LEARNING=1000 leaves very few gradient updates available for SAC to actually learn anything.",
+      "changes_made": [],
+      "metrics": {
+        "success_rate": 0.0,
+        "mean_reward": -50.0,
+        "mean_distance": 0.6065619303548908,
+        "total_steps": 1853,
+        "total_episodes": 37,
+        "total_updates": 853,
+        "peak_vram_mb": 27.15185546875
+      },
+      "vlm_feedback_summary": "Robot ignores the goal entirely; arm collapses downward into the table across all 3 episodes. In ep1 the gripper actually starts within the success threshold of the goal but the deterministic policy actively walks AWAY from it. Policy is effectively untrained.",
+      "vlm_failure_modes": [
+        "walks away from goal (no goal-tracking behavior)",
+        "arm collapses into table (strong downward bias in policy output)",
+        "ignores desired_goal portion of obs (similar end pose across different goals)",
+        "fails to exploit favorable starts (ep1 starts at goal, policy still leaves)"
+      ],
+      "vlm_suggestions": [
+        "STEPS_BEFORE_LEARNING 1000 -> 100 (single highest-leverage change, doubles available gradient updates)",
+        "N_UPDATES 1 -> 4 (REDQ-style UTD, multiplies effective gradient signal)",
+        "dense reward shaping in training (-distance instead of sparse -1/0) for stronger gradient signal",
+        "smaller network (128x2 or 64x2) since obs is only 13-dim"
+      ],
+      "status": "keep",
+      "hypothesis_confirmed": true,
+      "lesson_learned": "On a 10s wall-clock budget, the STEPS_BEFORE_LEARNING=1000 random warmup consumes ~54% of total env steps before any gradient update fires. Only 853 SAC updates total, far too few to train a 410k-param net even on FetchReach. The dominant constraint here is gradient steps, not env experience."
+    }
+  ],
+  "insights": [
+    "On a 10s budget, gradient-step budget (not env-step budget) is the dominant constraint. STEPS_BEFORE_LEARNING=1000 directly steals ~half of available updates."
+  ],
+  "failed_directions": [],
+  "promising_directions": [
+    "Reduce STEPS_BEFORE_LEARNING to 100",
+    "Raise UTD ratio (N_UPDATES) to 4-8 with REDQ/DroQ-style critic regularization if needed",
+    "Dense reward shaping in training (eval reward stays sparse via env)",
+    "Smaller network for the 13-dim obs / 4-dim action FetchReach problem"
+  ]
+}

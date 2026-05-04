@@ -1,1 +1,2 @@
 commit	success_rate	mean_reward	vlm_summary	status	description
+9630464	0.000000	-50.0	robot ignores goal, arm collapses into table	keep	baseline SAC+HER (unmodified)

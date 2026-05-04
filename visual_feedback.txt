@@ -1,86 +1,77 @@
-实验 8 — 多分量 dense reward(-||cube-goal|| - λ*||grip-cube||,λ=1.0)
-======================================================================
-eval_success_rate: 0.00(劣于基线 0.10)
-mean_reward: -50.0   |   mean_distance: 0.246(差于基线 0.214)
-training_seconds: 900(被早停 — 仅基线时间的一半)
-total_steps: 119,997   |   total_episodes: 2399
-spot_eval_history: [0.00, 0.00, 0.00] — 三连零,触发 no-progress 早停
-status: discard
+实验 9 — OU 时间相关探索噪声(叠加在 SAC 随机采样之上)
+=========================================================
+eval_success_rate: 0.10(等于基线 0.10)
+mean_reward: -44.8(轻微改进 vs 基线 -45.0)
+mean_distance: 0.194(改进 vs 基线 0.214)— **首个改进迹象**
+training_seconds: 1500(被早停于 25 分钟,基线为 30 分钟)
+total_steps: 189,827   |   total_episodes: 3796
+spot_eval_history: [0.00, 0.20, 0.00, 0.00, 0.00] — step 75K 一度达到 0.20
+status: discard(等于基线,按规则 discard)
 
 帧分析
 ------
-- ep0(目标在桌面,与 cube 距离约 0.2m):夹爪从顶部下降,end 帧落在 cube
-  右侧偏移位置。cube 没动。reach 只到了 cube 区域,精度不够。
-- ep1(目标在桌面紧挨 cube):mid 帧 gripper 直接悬停在目标/cube 区域上方。
-  end 帧 gripper 刚好对准目标位置但 cube 不在那里(被推开?或在 gripper 下
-  方被遮挡)。
-- ep2(目标在桌面紧挨 cube):end 帧 gripper 在 cube/goal 区域附近,但 cube
-  位置离 goal 还有偏移。
+- ep0(目标在空中左,cube 在桌面):
+  - mid: gripper 已下降到桌面右侧
+  - end: gripper 紧挨 cube 在桌面上 — **干净的 reach 行为**
+  - cube 没动,但 reach 比基线明显更精确
+- ep1(目标在空中左,cube 在桌面):
+  - mid: gripper 飘出桌面到右侧偏远位置
+  - end: gripper 飘得更远,远离 cube — **OU 漂移把 gripper 带离工作区**
+  - 这是 OU 噪声的失效模式:累积漂移 + θ=0.15 的回归力不够强
+- ep2(目标在桌面紧挨 cube):
+  - mid: gripper 直接悬在 cube/goal 之间 — reach 到位
+  - end: gripper 退回到 base 位置 — **reach 后又 retreat,没抓**
+  - 即便 reach 成功,gripper 没学会"下降+闭合+上抬"
 
-实验 8 的关键失败模式
----------------------
-**reward shaping 没有突破基线,反而劣化**:
-- 多分量 reward 让 gripper 学到了"去 cube 区域"(reach 部分有明显改进迹象)
-- 但 *没* 学到"抓+抬"
-- 而且新的 reach 行为反而破坏了基线那 10% 简单 episode 的成功率 — 因为
-  baseline 不动 cube,这些'goal 落 cube_init 附近'的 episode 自动成功;
-  exp 8 主动靠近 cube,偶尔把 cube 推开,反而把这种简单题搞砸
+关键观察
+--------
+1. **首次有改进迹象**:mean_distance 从 0.214 改进到 0.194,且 spot-eval
+   在训练过程中一度达到 0.20。说明 OU 时间相关性*确实*在帮助。
+2. **但仍卡在 0.10**:最终 eval 与基线持平,因为 OU 漂移不稳定 — 有时
+   提升 reach,有时把 gripper 带离工作区(ep1)。
+3. **关键失效模式**:OU 叠加在 SAC 的 i.i.d. 高斯采样之上 → 总噪声过大。
+   SAC alpha=0.12-0.20 对应每步 ~0.2 高斯噪声,叠加 OU σ=0.2 后总噪声
+   有效 ~0.4。这压过了 policy 的真实信号。
 
-eval mean_distance 0.246 vs 基线 0.214 = 略差。说明 cube 不仅没向 goal 移动,
-还可能被推到错误方向。
+为什么 25 分钟被早停
+--------------------
+spot-eval = [0, 0.20, 0, 0, 0]。最后 3 个 0 触发 no-progress 早停。如果
+没有早停,继续训练到 30 分钟可能改变结果,但本来就是临界水平,概率上
+最终 eval 不会超过 0.15。
 
-为什么 reward shaping 不能打破 0.10
------------------------------------
-我以为 grip-cube 项能给 reach 一个梯度,然后 reach 一旦学好,gripper 就会
-"碰巧" 把 cube 撞到 goal。但实际 evaluator 显示:gripper 成功 reach 后,
-后续动作没有协调"抓+抬"序列 — 因为 SAC 的 i.i.d. 高斯探索在每一步独立
-采样,无法在 50 步 episode 内产生连贯的"下降 + 闭合 + 上抬"子序列。
-
-每步动作随机性:σ ≈ 0.2(由 alpha 控制)。3 个连续步骤都恰好是"下 + 闭
-+ 上"的概率非常低。HER 只能从 buffer 里有的转移学习 — 如果 buffer 里
-没有"cube 被抬起"的转移,HER 也学不到 manipulation。
-
-实验 1-8 累积结论(再强化)
-----------------------------
+实验 1-9 累积结论
+-----------------
 - 优化质量(LN)— 不是瓶颈
 - 探索量(target_entropy 调高、固定 alpha)— 不是瓶颈
 - 信号形状(dense reward,多分量 dense)— 不是瓶颈
 - warmup 数据偏置(gripper-close)— 不足以单独突破
+- **OU 叠加在 SAC 随机采样之上**(实验 9)— 部分改进但被 SAC 噪声稀释
 
-剩下未试的、文献支持的方向是:**探索的*时间结构*** — i.i.d. 高斯噪声
-变成时间相关噪声(OU)。这是 DDPG 原论文(Lillicrap 2015)和 HER FetchPick
-论文(Andrychowicz 2017)的标准配方,正是因为这种连续控制 + sparse reward +
-50 步 episode 的任务族,i.i.d. 噪声不够。
+剩下未试的有意义方向:
+- **deterministic SAC + 纯 OU 噪声**(实验 10) — DDPG 配方
+- **更大 OU σ**(σ=0.3 / 0.4)
+- **TD3 替换 SAC** — 底牌
 
-实验 9 计划:OU 时间相关探索噪声
---------------------------------
-回到基线(sparse reward + auto-alpha + STEPS_BEFORE_LEARNING=1000),
-**仅添加 OU 噪声**到 action 选择上。
+实验 10 计划:deterministic SAC + 纯 OU
+---------------------------------------
+单变量改动 vs 实验 9:把 SAC 的 `deterministic=False` 改为 `True`(用
+mean 而非采样)。OU 噪声保留 σ=0.2。这样:
+- action = SAC_mean + OU_sample(纯时间相关噪声,无 i.i.d.)
+- 总噪声 = OU σ ≈ 0.38(单独)+ tanh squashing — 比实验 9 小很多
 
-OU 实现:
-  ξ_{t+1} = ξ_t + θ*(μ - ξ_t) + σ*N(0,1)
-  θ=0.15, σ=0.2, μ=0
-  在 SAC 采样的 action 上叠加,clip 到 [-1, 1]
-  episode 结束时 reset ξ=0
-  eval 时不加 OU(用 deterministic mean,evaluate.py 已经如此)
-
-OU 时间相关时长 = 1/θ ≈ 7 步,意味着噪声在 ~7 步内保持同向。这在 50 步
-episode 内会产生 ~7 个独立的"动作意图段",每段持续约 7 步 → 有机会出现
-连贯的"下降 + 闭合"或"上抬"子序列。
-
-预期:0.10 → 0.15-0.30。critic_loss / alpha 等训练曲线应当稳定。
+预期:0.15-0.30。reach 应当稳定(无 i.i.d. 干扰),OU 偶然产生连贯抓取
+子序列。
 
 风险:
-- σ=0.2 可能太小,无法克服 cube 的静摩擦。Lillicrap 论文用 σ=0.2 with
-  scale-1 actions,通常足够;但如果 SAC 已有 alpha=0.2 的高斯噪声,叠加后
-  可能噪声过大 → 训练退化。先试 σ=0.2,若 spot-eval 差再调
-- OU + i.i.d Gaussian 叠加:本质上是 SAC 的 i.i.d. 探索 + OU 时间相关
-  扰动。如果想纯净测试 OU 影响,可以用 deterministic SAC + 纯 OU(类
-  TD3)。先试叠加方案,出了问题再切换
+- 没有 SAC 的随机探索,policy 可能陷入次优策略(deterministic 局部解)
+- 但 OU 噪声 σ=0.2 + 时间相关 ~7 步,应当提供足够探索
+- 若仍 0.10:加大 σ=0.3 试一次(实验 11)
+- 若 σ=0.3 仍 0.10:换 TD3(实验 12)
 
-后续(若实验 9 突破):
-- 实验 10:OU + 多分量 dense reward(组合赢家)
-- 实验 11:OU 噪声参数调整(σ 扫描)
-
-后续(若实验 9 仍 ≤ 0.10):
-- 实验 10:换 TD3(deterministic policy + 持久 action noise) — 底牌方案
+实施细节:
+  if total_steps < STEPS_BEFORE_LEARNING:
+      action = env.action_space.sample()
+  else:
+      action = agent.select_action(obs, deterministic=True)  # 改 True
+      if ou_noise is not None:
+          action = np.clip(action + ou_noise.sample(), -1, 1)

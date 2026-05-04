@@ -1,7 +1,7 @@
 {
   "best_commit": "ed69e5e",
   "best_success_rate": 0.1,
-  "total_experiments": 8,
+  "total_experiments": 9,
   "experiments": [
     {
       "id": 1,
@@ -260,31 +260,62 @@
       "commit": "eda3360",
       "timestamp": "2026-05-04T11:38:18",
       "agent": "opus-4.7",
-      "description": "多分量 dense training reward:shaped = -||cube - goal|| - λ*||grip - cube||,λ=1.0。HER 重标注时也用同一公式,grip 位置从存储的 next_obs[:3] 取。配合固定 alpha=0.2(沿用实验 5),STEPS_BEFORE_LEARNING=1000(基线),不要 GRIPPER_CLOSE_DURING_WARMUP。相对实验 5 唯一新增的就是 grip-cube 这一项。",
-      "hypothesis": "实验 7 暴露:dense reward 在 episode 内梯度为零(cube 不动 ⇒ 常数)。修复:加 -λ*||grip - cube|| 项,gripper 在 action 之下立即变化 ⇒ reach 有即时 action-依赖梯度。预期 reach 立即可学,然后 gripper 偶然撞动 cube 触发 cube-goal 项 + HER manipulation 学习。预期 0.20-0.40。",
+      "description": "\u591a\u5206\u91cf dense training reward:shaped = -||cube - goal|| - \u03bb*||grip - cube||,\u03bb=1.0\u3002HER \u91cd\u6807\u6ce8\u65f6\u4e5f\u7528\u540c\u4e00\u516c\u5f0f,grip \u4f4d\u7f6e\u4ece\u5b58\u50a8\u7684 next_obs[:3] \u53d6\u3002\u914d\u5408\u56fa\u5b9a alpha=0.2(\u6cbf\u7528\u5b9e\u9a8c 5),STEPS_BEFORE_LEARNING=1000(\u57fa\u7ebf),\u4e0d\u8981 GRIPPER_CLOSE_DURING_WARMUP\u3002\u76f8\u5bf9\u5b9e\u9a8c 5 \u552f\u4e00\u65b0\u589e\u7684\u5c31\u662f grip-cube \u8fd9\u4e00\u9879\u3002",
+      "hypothesis": "\u5b9e\u9a8c 7 \u66b4\u9732:dense reward \u5728 episode \u5185\u68af\u5ea6\u4e3a\u96f6(cube \u4e0d\u52a8 \u21d2 \u5e38\u6570)\u3002\u4fee\u590d:\u52a0 -\u03bb*||grip - cube|| \u9879,gripper \u5728 action \u4e4b\u4e0b\u7acb\u5373\u53d8\u5316 \u21d2 reach \u6709\u5373\u65f6 action-\u4f9d\u8d56\u68af\u5ea6\u3002\u9884\u671f reach \u7acb\u5373\u53ef\u5b66,\u7136\u540e gripper \u5076\u7136\u649e\u52a8 cube \u89e6\u53d1 cube-goal \u9879 + HER manipulation \u5b66\u4e60\u3002\u9884\u671f 0.20-0.40\u3002",
       "changes_made": [
-        "AUTO_ALPHA = False(沿用实验 5)",
-        "新增 DENSE_GRIP_LAMBDA = 1.0",
-        "ReplayBuffer._compute_reward 改为多分量 dense:-||ag - dg|| - λ*||grip - ag||,新增 grip_pos 参数",
-        "ReplayBuffer.sample 中 HER 调用 _compute_reward 时,grip 取 next_observations[idx, :3]",
-        "训练循环 buffer.add 的 reward 改为 -||next_ag - dg|| - λ*||next_grip - next_ag||"
+        "AUTO_ALPHA = False(\u6cbf\u7528\u5b9e\u9a8c 5)",
+        "\u65b0\u589e DENSE_GRIP_LAMBDA = 1.0",
+        "ReplayBuffer._compute_reward \u6539\u4e3a\u591a\u5206\u91cf dense:-||ag - dg|| - \u03bb*||grip - ag||,\u65b0\u589e grip_pos \u53c2\u6570",
+        "ReplayBuffer.sample \u4e2d HER \u8c03\u7528 _compute_reward \u65f6,grip \u53d6 next_observations[idx, :3]",
+        "\u8bad\u7ec3\u5faa\u73af buffer.add \u7684 reward \u6539\u4e3a -||next_ag - dg|| - \u03bb*||next_grip - next_ag||"
       ],
-      "vlm_feedback_summary": "假设未被证实且劣于基线:0.00,被早停于 15 分钟(三连续 spot-eval 都是 0)。帧上看 gripper 在 cube/goal 区域附近悬停,但 reach 不够精确,经常偏离 cube。不仅没学好 manipulation,连基线那 10% 'goal 落 cube_init 附近' 的简单题都丢了 — 因为 gripper 主动靠近 cube 时偶然把 cube 推开。",
+      "vlm_feedback_summary": "\u5047\u8bbe\u672a\u88ab\u8bc1\u5b9e\u4e14\u52a3\u4e8e\u57fa\u7ebf:0.00,\u88ab\u65e9\u505c\u4e8e 15 \u5206\u949f(\u4e09\u8fde\u7eed spot-eval \u90fd\u662f 0)\u3002\u5e27\u4e0a\u770b gripper \u5728 cube/goal \u533a\u57df\u9644\u8fd1\u60ac\u505c,\u4f46 reach \u4e0d\u591f\u7cbe\u786e,\u7ecf\u5e38\u504f\u79bb cube\u3002\u4e0d\u4ec5\u6ca1\u5b66\u597d manipulation,\u8fde\u57fa\u7ebf\u90a3 10% 'goal \u843d cube_init \u9644\u8fd1' \u7684\u7b80\u5355\u9898\u90fd\u4e22\u4e86 \u2014 \u56e0\u4e3a gripper \u4e3b\u52a8\u9760\u8fd1 cube \u65f6\u5076\u7136\u628a cube \u63a8\u5f00\u3002",
       "vlm_failure_modes": [
-        "reach_below_baseline:eval mean_distance 0.246 比基线 0.214 还差。gripper 在尝试贴近 cube 时偶然推开 cube,使本来 ||cube_init - goal|| < 0.05 的简单 episode 也失败",
-        "gripper_hovers_offset:帧上看 gripper 经常停在 cube 上方/侧边偏移位置,而不是精确贴在 cube 上。可能是 gripper 几何与 cube 顶面碰撞导致的局部最优",
-        "no_lifting_no_pushing:cube 位移后没有持续向 goal 方向移动 — i.i.d 高斯噪声在 50 步 episode 内无法连贯执行 '抓 + 抬' 序列",
-        "early_stopped:三连续 spot-eval = 0,15 分钟后被杀(和实验 7 类似)"
+        "reach_below_baseline:eval mean_distance 0.246 \u6bd4\u57fa\u7ebf 0.214 \u8fd8\u5dee\u3002gripper \u5728\u5c1d\u8bd5\u8d34\u8fd1 cube \u65f6\u5076\u7136\u63a8\u5f00 cube,\u4f7f\u672c\u6765 ||cube_init - goal|| < 0.05 \u7684\u7b80\u5355 episode \u4e5f\u5931\u8d25",
+        "gripper_hovers_offset:\u5e27\u4e0a\u770b gripper \u7ecf\u5e38\u505c\u5728 cube \u4e0a\u65b9/\u4fa7\u8fb9\u504f\u79fb\u4f4d\u7f6e,\u800c\u4e0d\u662f\u7cbe\u786e\u8d34\u5728 cube \u4e0a\u3002\u53ef\u80fd\u662f gripper \u51e0\u4f55\u4e0e cube \u9876\u9762\u78b0\u649e\u5bfc\u81f4\u7684\u5c40\u90e8\u6700\u4f18",
+        "no_lifting_no_pushing:cube \u4f4d\u79fb\u540e\u6ca1\u6709\u6301\u7eed\u5411 goal \u65b9\u5411\u79fb\u52a8 \u2014 i.i.d \u9ad8\u65af\u566a\u58f0\u5728 50 \u6b65 episode \u5185\u65e0\u6cd5\u8fde\u8d2f\u6267\u884c '\u6293 + \u62ac' \u5e8f\u5217",
+        "early_stopped:\u4e09\u8fde\u7eed spot-eval = 0,15 \u5206\u949f\u540e\u88ab\u6740(\u548c\u5b9e\u9a8c 7 \u7c7b\u4f3c)"
       ],
       "vlm_suggestions": [
-        "下一步(实验 9):**OU 时间相关探索噪声** — 替代 SAC 的 i.i.d 高斯采样。θ=0.15,σ=0.2,在 episode 内动作有 ~7 步时间相关性 → policy 偶然产生 '持续向某方向运动 + 闭合夹爪' 的连贯动作序列。这是文献(Lillicrap 2015 / Andrychowicz 2017)针对该任务族的标准方案",
-        "回到基线 reward(sparse, AUTO_ALPHA=True),只加 OU 噪声 — 单变量改动,清晰归因",
-        "若 OU 单独无效:OU + 多分量 dense reward 组合(实验 8 + OU)",
-        "底牌:TD3 替换 SAC(deterministic policy + OU/Gaussian persistent noise)"
+        "\u4e0b\u4e00\u6b65(\u5b9e\u9a8c 9):**OU \u65f6\u95f4\u76f8\u5173\u63a2\u7d22\u566a\u58f0** \u2014 \u66ff\u4ee3 SAC \u7684 i.i.d \u9ad8\u65af\u91c7\u6837\u3002\u03b8=0.15,\u03c3=0.2,\u5728 episode \u5185\u52a8\u4f5c\u6709 ~7 \u6b65\u65f6\u95f4\u76f8\u5173\u6027 \u2192 policy \u5076\u7136\u4ea7\u751f '\u6301\u7eed\u5411\u67d0\u65b9\u5411\u8fd0\u52a8 + \u95ed\u5408\u5939\u722a' \u7684\u8fde\u8d2f\u52a8\u4f5c\u5e8f\u5217\u3002\u8fd9\u662f\u6587\u732e(Lillicrap 2015 / Andrychowicz 2017)\u9488\u5bf9\u8be5\u4efb\u52a1\u65cf\u7684\u6807\u51c6\u65b9\u6848",
+        "\u56de\u5230\u57fa\u7ebf reward(sparse, AUTO_ALPHA=True),\u53ea\u52a0 OU \u566a\u58f0 \u2014 \u5355\u53d8\u91cf\u6539\u52a8,\u6e05\u6670\u5f52\u56e0",
+        "\u82e5 OU \u5355\u72ec\u65e0\u6548:OU + \u591a\u5206\u91cf dense reward \u7ec4\u5408(\u5b9e\u9a8c 8 + OU)",
+        "\u5e95\u724c:TD3 \u66ff\u6362 SAC(deterministic policy + OU/Gaussian persistent noise)"
       ],
       "status": "discard",
       "hypothesis_confirmed": false,
-      "lesson_learned": "多分量 dense reward(加 -λ*||grip - cube||)没有突破基线 — 反而 0.00,劣于基线。这进一步确认探索结构是真正的瓶颈,而不是 reward shape。policy 学到了'去 cube 区域'但学不到'抓+抬'。reward shaping 能帮助 reach,但不能凭空产生协调的多步抓取动作。在 4D 动作空间 + 50 步 episode + i.i.d. 高斯噪声下,'抓+抬' 多步序列的随机发现概率几乎为零,任何 reward shape 都救不了。下一步必须改变*探索时间结构*:OU 时间相关噪声(标准 DDPG/HER FetchPickAndPlace 配方),或换 TD3。"
+      "lesson_learned": "\u591a\u5206\u91cf dense reward(\u52a0 -\u03bb*||grip - cube||)\u6ca1\u6709\u7a81\u7834\u57fa\u7ebf \u2014 \u53cd\u800c 0.00,\u52a3\u4e8e\u57fa\u7ebf\u3002\u8fd9\u8fdb\u4e00\u6b65\u786e\u8ba4\u63a2\u7d22\u7ed3\u6784\u662f\u771f\u6b63\u7684\u74f6\u9888,\u800c\u4e0d\u662f reward shape\u3002policy \u5b66\u5230\u4e86'\u53bb cube \u533a\u57df'\u4f46\u5b66\u4e0d\u5230'\u6293+\u62ac'\u3002reward shaping \u80fd\u5e2e\u52a9 reach,\u4f46\u4e0d\u80fd\u51ed\u7a7a\u4ea7\u751f\u534f\u8c03\u7684\u591a\u6b65\u6293\u53d6\u52a8\u4f5c\u3002\u5728 4D \u52a8\u4f5c\u7a7a\u95f4 + 50 \u6b65 episode + i.i.d. \u9ad8\u65af\u566a\u58f0\u4e0b,'\u6293+\u62ac' \u591a\u6b65\u5e8f\u5217\u7684\u968f\u673a\u53d1\u73b0\u6982\u7387\u51e0\u4e4e\u4e3a\u96f6,\u4efb\u4f55 reward shape \u90fd\u6551\u4e0d\u4e86\u3002\u4e0b\u4e00\u6b65\u5fc5\u987b\u6539\u53d8*\u63a2\u7d22\u65f6\u95f4\u7ed3\u6784*:OU \u65f6\u95f4\u76f8\u5173\u566a\u58f0(\u6807\u51c6 DDPG/HER FetchPickAndPlace \u914d\u65b9),\u6216\u6362 TD3\u3002"
+    },
+    {
+      "id": 9,
+      "commit": "760c1fb",
+      "timestamp": "2026-05-04T12:10:14",
+      "agent": "opus-4.7",
+      "description": "OU 时间相关探索噪声叠加在 SAC 随机采样之上(训练时)。θ=0.15,σ=0.2,μ=0,episode 结束 reset。eval 不加(deterministic mean,evaluate.py 已是)。其余全保持基线(sparse reward, AUTO_ALPHA=True, STEPS_BEFORE_LEARNING=1000)。",
+      "hypothesis": "实验 1-8 已确认 reward shaping、优化稳定性、探索量都不是瓶颈。剩下未试的是探索的*时间结构* — i.i.d. 高斯每步独立采样,在 4D 动作空间 + 50 步 episode 内无法产生协调的'下降+闭合+上抬'多步序列。OU 时间相关噪声(θ=0.15 → ~7 步相关)能产生持续方向运动 ⇒ 偶然出现该子序列 ⇒ buffer 中累积 manipulation 转移 ⇒ HER 学到 manipulation。预期 0.15-0.30。",
+      "changes_made": [
+        "新增 OUNoise 类(简单 OU 过程实现)",
+        "新增 USE_OU_NOISE=True, OU_THETA=0.15, OU_SIGMA=0.2, OU_MU=0.0 配置",
+        "训练循环 action 选择叠加 OU 噪声: action = clip(SAC_sample + OU.sample(), -1, 1)",
+        "episode 结束时调用 ou_noise.reset()",
+        "warmup 阶段不加 OU(env.action_space.sample 已经够随机)"
+      ],
+      "vlm_feedback_summary": "假设部分成立但未突破:成功率 0.10 与基线持平,但 mean_distance 0.194 比基线 0.214 略好,且 spot-eval 在 step 75K 一度达到 0.20(其他三次为 0)。OU 让 reach 行为略有改进但不足以打破 0.10 上限 — gripper 在 ep0 干净接近 cube,但 ep1 偶尔被 OU 漂移带离工作区,ep2 reach 后又回退。在 25 分钟被早停。",
+      "vlm_failure_modes": [
+        "ou_drift_carries_gripper_away:ep1 看到 gripper 漂离桌面到右侧。OU 累积漂移有时把 gripper 带离 cube,而 θ=0.15 的回归力不够强",
+        "no_lifting_emerged:即便 reach 偶尔到位(ep2 mid 在 cube/goal 之间),gripper 没学会'下降+闭合+上抬',只是 reach 后退回",
+        "ou_on_top_of_sac_too_noisy:OU σ=0.2 加在 SAC 的 i.i.d 高斯之上。SAC alpha=0.12-0.20 对应每步 ~0.2 噪声。叠加后总噪声 ~0.4,可能压过 policy 的真实信号",
+        "early_stopped_25min:三连续 spot-eval 0(中间一次 0.20),被早停。比 exp 7/8 多坚持了 ~10 分钟,但仍提前结束"
+      ],
+      "vlm_suggestions": [
+        "下一步(实验 10):**deterministic SAC + OU**(σ=0.2)— 移除 SAC 的随机采样,只用 mean 动作,叠加纯 OU 噪声。这是 DDPG 的标准配方(Lillicrap 2015)。隔离时间相关探索的效果,排除 SAC i.i.d. 干扰",
+        "若 deterministic + OU 仍 0.10:加大 OU σ=0.3(更强漂移)",
+        "若仍不行:OU σ schedule(初期 0.3,后期 0.05)",
+        "底牌:完整 TD3 替换 SAC(deterministic policy + 双 critic + target policy smoothing + delayed updates)"
+      ],
+      "status": "discard",
+      "hypothesis_confirmed": null,
+      "lesson_learned": "OU 时间相关噪声叠加在 SAC 随机采样之上没有突破基线 — 但 mean_distance(0.194 vs 0.214)略有改进,且 spot-eval 一度达到 0.20。说明 OU 时间相关性确实在帮助 reach,但效果被 SAC 的 i.i.d. 高斯采样稀释/压过(总噪声过大)。下一步去掉 SAC 的随机采样,只保留 OU 作为纯时间相关探索,这是 DDPG 的标准配置。如果还不行,改换 TD3。"
     }
   ],
   "insights": [
@@ -302,7 +333,8 @@
     "\u5b9e\u9a8c 7 \u5173\u952e\u6d1e\u5bdf:dense reward = -||achieved_goal - desired_goal|| \u5728 episode \u5185\u68af\u5ea6\u4e3a\u96f6(achieved_goal \u662f cube \u4f4d\u7f6e,cube \u4e0d\u52a8 \u21d2 reward \u5e38\u6570)\u3002SAC \u7684 critic \u5b66\u7684\u662f Q(s,a),\u9700\u8981 reward \u5bf9 action \u5373\u65f6\u54cd\u5e94\u624d\u80fd\u5b66\u5230 action-Q \u6620\u5c04\u3002\u8981\u4fee\u590d\u8fd9\u4e2a\u6839\u672c\u95ee\u9898,\u5fc5\u987b\u628a*\u968f action \u7acb\u5373\u53d8\u5316\u7684\u91cf*\u7eb3\u5165 reward \u2014 \u6700\u76f4\u63a5\u7684\u5c31\u662f gripper \u4f4d\u7f6e(-||grip - cube||)\u3002",
     "\u5b9e\u9a8c 7 \u7684'\u4e09\u5408\u4e00\u7ec4\u5408'\u53cd\u800c\u6bd4\u5355\u53d8\u91cf\u66f4\u5dee(0.00 vs \u5355\u53d8\u91cf 0.10):\u56e0\u4e3a\u52a0\u4e0a 5K \u6b65 warmup \u628a\u540e\u7eed\u8bad\u7ec3\u65f6\u95f4\u7f29\u77ed(\u88ab\u65e9\u505c),\u4e14\u5e73\u5766 reward \u4f7f reach \u90fd\u6ca1\u5b66\u597d,\u8fde\u57fa\u7ebf\u9760 goal-on-table-near-cube \u7684 reach \u9898\u90fd\u4e22\u4e86\u3002\u6559\u8bad:\u6760\u6746\u7ec4\u5408\u4e0d\u662f\u7b80\u5355\u53e0\u52a0 \u2014 \u9700\u8981\u6bcf\u4e2a\u6760\u6746\u5355\u72ec\u6709\u6548\u518d\u7ec4\u5408\u3002",
     "\u5b9e\u9a8c 8 \u5173\u952e\u6d1e\u5bdf:\u591a\u5206\u91cf dense reward(-||cube-goal|| - \u03bb*||grip-cube||,\u03bb=1.0)\u4fee\u590d\u4e86 reward \u5728 episode \u5185\u68af\u5ea6\u4e3a\u96f6\u7684\u95ee\u9898,\u4f46\u6210\u529f\u7387\u4ecd\u662f 0.00 \u2014 \u6bd4\u57fa\u7ebf\u8fd8\u5dee\u3002\u8fd9\u5f7b\u5e95\u786e\u8ba4 reward shaping \u4e0d\u662f\u5f53\u524d\u4efb\u52a1\u7684\u74f6\u9888\u3002policy \u80fd\u5b66\u5230'\u53bb cube \u9644\u8fd1'\u4f46\u5b66\u4e0d\u5230'\u6293+\u62ac',\u56e0\u4e3a i.i.d. \u9ad8\u65af\u63a2\u7d22\u5728 4D \u52a8\u4f5c\u7a7a\u95f4 + 50 \u6b65 episode \u5185,'\u4e0b\u964d+\u95ed\u5408+\u4e0a\u62ac' \u8fd9\u79cd\u591a\u6b65\u534f\u8c03\u5e8f\u5217\u7684\u968f\u673a\u51fa\u73b0\u6982\u7387\u51e0\u4e4e\u4e3a\u96f6,\u4efb\u4f55 reward shape \u90fd\u6551\u4e0d\u4e86\u3002\u74f6\u9888\u662f*\u63a2\u7d22\u7684\u65f6\u95f4\u7ed3\u6784*\u3002",
-    "\u5b9e\u9a8c 8 \u526f\u4f5c\u7528:\u52a0\u4e0a grip-cube \u53cd\u800c\u5bfc\u81f4 reach \u6bd4\u57fa\u7ebf\u66f4\u5dee(eval mean_distance 0.246 vs \u57fa\u7ebf 0.214)\u3002\u539f\u56e0\u53ef\u80fd\u662f gripper \u4e3b\u52a8\u9760\u8fd1 cube \u65f6\u5076\u7136\u63a8\u5f00\u5b83,\u628a\u90a3 10% '\u521d\u59cb goal \u5df2\u5728 cube_init \u9644\u8fd1' \u7684\u7b80\u5355 episode \u4e5f\u4e22\u4e86\u3002\u8fd9\u8bf4\u660e reward shaping \u5bf9'do nothing useful'\u7684\u7a33\u6001\u6709\u7834\u574f\u6027\u3002"
+    "\u5b9e\u9a8c 8 \u526f\u4f5c\u7528:\u52a0\u4e0a grip-cube \u53cd\u800c\u5bfc\u81f4 reach \u6bd4\u57fa\u7ebf\u66f4\u5dee(eval mean_distance 0.246 vs \u57fa\u7ebf 0.214)\u3002\u539f\u56e0\u53ef\u80fd\u662f gripper \u4e3b\u52a8\u9760\u8fd1 cube \u65f6\u5076\u7136\u63a8\u5f00\u5b83,\u628a\u90a3 10% '\u521d\u59cb goal \u5df2\u5728 cube_init \u9644\u8fd1' \u7684\u7b80\u5355 episode \u4e5f\u4e22\u4e86\u3002\u8fd9\u8bf4\u660e reward shaping \u5bf9'do nothing useful'\u7684\u7a33\u6001\u6709\u7834\u574f\u6027\u3002",
+    "\u5b9e\u9a8c 9 \u5173\u952e\u6d1e\u5bdf:OU \u65f6\u95f4\u76f8\u5173\u566a\u58f0\u53e0\u52a0 SAC \u968f\u673a\u91c7\u6837,\u6210\u529f\u7387\u4ecd 0.10 \u4f46 mean_distance \u6539\u8fdb\u5230 0.194(\u57fa\u7ebf 0.214),\u4e14 spot-eval \u4e00\u5ea6\u8fbe\u5230 0.20\u3002\u8bf4\u660e OU \u65f6\u95f4\u76f8\u5173\u6027\u786e\u5b9e\u6709\u6b63\u9762\u6548\u679c(reach \u6539\u8fdb + \u5076\u5c14\u51fa\u73b0 manipulation),\u4f46\u88ab SAC \u7684 i.i.d. \u9ad8\u65af\u91c7\u6837\u7a00\u91ca\u3002SAC \u7684\u968f\u673a\u91c7\u6837\u548c OU \u52a0\u5728\u4e00\u8d77 \u2192 \u603b\u566a\u58f0\u8fc7\u5927,\u538b\u8fc7 policy \u4fe1\u53f7\u3002\u4e0b\u4e00\u6b65\u7528 deterministic SAC + \u7eaf OU(DDPG \u6807\u51c6\u914d\u7f6e)\u9694\u79bb\u6548\u679c\u3002"
   ],
   "failed_directions": [
     "LayerNorm in BOTH actor + critic with AUTO_ALPHA on. Hurts reach, kills alpha, slows throughput. May still be worth trying critic-only LN once exploration is fixed.",
@@ -311,15 +343,16 @@
     "Dense reward + \u56fa\u5b9a alpha=0.2(AUTO_ALPHA=False)\u7ec4\u5408\u3002\u8bad\u7ec3\u5e72\u51c0\u7a33\u5b9a\u4f46\u6210\u529f\u7387\u53ea\u5230 0.10(\u7b49\u4e8e\u57fa\u7ebf)\u3002\u95ee\u9898\u4e0d\u5728\u4fe1\u53f7\u6216\u63a2\u7d22\u91cf,\u800c\u5728\u63a2\u7d22\u7ed3\u6784 \u2014 \u5355\u7eaf\u7684 i.i.d \u9ad8\u65af\u566a\u58f0\u5728 50 \u6b65 episode \u5185\u65e0\u6cd5\u53d1\u73b0\u534f\u8c03\u7684\u6293\u53d6\u591a\u6b65\u5e8f\u5217\u3002",
     "Gripper-close warmup(STEPS_BEFORE_LEARNING=5000,warmup \u9636\u6bb5\u5f3a\u5236 action[3]=-1)\u5355\u72ec + auto-alpha + sparse reward\u3002\u6700\u7ec8 eval 0.10(\u7b49\u4e8e\u57fa\u7ebf)\u3002warmup \u6570\u636e\u88ab\u540e\u7eed deterministic policy \u9636\u6bb5\u7a00\u91ca,alpha \u4ecd\u5d29\u5230 0.002\u3002\u9700\u8981\u4e0e\u56fa\u5b9a alpha + dense reward \u7ec4\u5408\u3002",
     "\u4e09\u5408\u4e00\u7ec4\u5408(dense + \u56fa\u5b9a alpha=0.2 + gripper-close warmup,STEPS_BEFORE_LEARNING=5000)\u3002eval 0.00,\u52a3\u4e8e\u57fa\u7ebf 0.10,\u88ab\u65e9\u505c\u3002\u6839\u56e0:dense reward \u5728 episode \u5185\u68af\u5ea6\u4e3a\u96f6(cube \u4e0d\u52a8 \u21d2 \u5e38\u6570 reward),\u65e0 action-\u4f9d\u8d56\u4fe1\u53f7\u3002\u7ec4\u5408\u4e0d\u80fd\u5f25\u8865\u5355\u5206\u91cf reward shaping \u7684\u672c\u8d28\u7f3a\u9677\u3002",
-    "\u591a\u5206\u91cf dense reward(-||cube-goal|| - 1.0*||grip-cube||)+ \u56fa\u5b9a alpha=0.2\u3002eval 0.00,\u52a3\u4e8e\u57fa\u7ebf\u3002\u4fee\u590d\u4e86 episode \u5185\u68af\u5ea6\u4e3a\u96f6\u7684\u95ee\u9898(grip-cube \u9879\u7ed9 reach \u5373\u65f6 action-\u4f9d\u8d56\u68af\u5ea6)\u4f46\u6210\u529f\u7387\u4ecd\u5d29\u3002\u8bf4\u660e reward shaping \u4e0d\u662f\u5f53\u524d\u74f6\u9888 \u2014 \u771f\u6b63\u7684\u74f6\u9888\u662f i.i.d. \u9ad8\u65af\u63a2\u7d22\u5728 4D \u52a8\u4f5c\u7a7a\u95f4\u5185\u65e0\u6cd5\u53d1\u73b0'\u6293+\u62ac' \u591a\u6b65\u534f\u8c03\u5e8f\u5217\u3002"
+    "\u591a\u5206\u91cf dense reward(-||cube-goal|| - 1.0*||grip-cube||)+ \u56fa\u5b9a alpha=0.2\u3002eval 0.00,\u52a3\u4e8e\u57fa\u7ebf\u3002\u4fee\u590d\u4e86 episode \u5185\u68af\u5ea6\u4e3a\u96f6\u7684\u95ee\u9898(grip-cube \u9879\u7ed9 reach \u5373\u65f6 action-\u4f9d\u8d56\u68af\u5ea6)\u4f46\u6210\u529f\u7387\u4ecd\u5d29\u3002\u8bf4\u660e reward shaping \u4e0d\u662f\u5f53\u524d\u74f6\u9888 \u2014 \u771f\u6b63\u7684\u74f6\u9888\u662f i.i.d. \u9ad8\u65af\u63a2\u7d22\u5728 4D \u52a8\u4f5c\u7a7a\u95f4\u5185\u65e0\u6cd5\u53d1\u73b0'\u6293+\u62ac' \u591a\u6b65\u534f\u8c03\u5e8f\u5217\u3002",
+    "OU \u65f6\u95f4\u76f8\u5173\u566a\u58f0(\u03b8=0.15, \u03c3=0.2)\u53e0\u52a0 SAC \u968f\u673a\u91c7\u6837\u3002eval 0.10 = \u57fa\u7ebf,\u4f46 mean_distance 0.194 \u6bd4\u57fa\u7ebf 0.214 \u6539\u8fdb,spot-eval \u4e00\u5ea6 0.20\u3002OU \u65f6\u95f4\u76f8\u5173\u6027\u786e\u5b9e\u6709\u6b63\u9762\u6548\u679c\u4f46\u88ab SAC \u7684 i.i.d. \u9ad8\u65af\u538b\u8fc7\u3002\u9700\u8981 deterministic SAC \u9694\u79bb OU \u6548\u679c(DDPG \u6807\u51c6\u914d\u7f6e)\u3002"
   ],
   "promising_directions": [
-    "\u4e0b\u4e00\u6b65(\u5b9e\u9a8c 9):**OU \u65f6\u95f4\u76f8\u5173\u63a2\u7d22\u566a\u58f0** \u2014 \u66ff\u4ee3 SAC \u7684 i.i.d. \u9ad8\u65af\u91c7\u6837\u3002\u03b8=0.15,\u03c3=0.2,\u5728 episode \u5185\u52a8\u4f5c\u6709 ~7 \u6b65\u65f6\u95f4\u76f8\u5173\u6027 \u2192 \u5076\u7136\u4ea7\u751f'\u6301\u7eed\u5411\u67d0\u65b9\u5411\u8fd0\u52a8 + \u95ed\u5408\u5939\u722a'\u7684\u8fde\u8d2f\u52a8\u4f5c\u5e8f\u5217\u3002Lillicrap 2015 / Andrychowicz 2017 \u5728 FetchPickAndPlace \u4e0a\u7684\u6807\u51c6\u65b9\u6848",
-    "\u56de\u5230\u57fa\u7ebf reward(sparse, AUTO_ALPHA=True),\u53ea\u52a0 OU \u566a\u58f0 \u2014 \u5355\u53d8\u91cf\u6539\u52a8,\u6e05\u6670\u5f52\u56e0",
-    "\u82e5 OU \u5355\u72ec\u65e0\u6548:OU + \u591a\u5206\u91cf dense reward \u7ec4\u5408(\u5b9e\u9a8c 8 + OU)",
-    "\u82e5 OU \u4ecd\u65e0\u6548:TD3 \u66ff\u6362 SAC(deterministic policy + persistent Gaussian / OU noise) \u2014 \u5e95\u724c",
+    "\u4e0b\u4e00\u6b65(\u5b9e\u9a8c 10):**deterministic SAC + OU**(\u03c3=0.2)\u2014 \u79fb\u9664 SAC \u968f\u673a\u91c7\u6837,\u53ea\u7528 mean \u52a8\u4f5c + \u7eaf OU \u566a\u58f0\u3002DDPG \u6807\u51c6\u914d\u65b9(Lillicrap 2015)\u3002\u9694\u79bb\u65f6\u95f4\u76f8\u5173\u63a2\u7d22\u6548\u679c,\u6392\u9664 SAC i.i.d. \u5e72\u6270",
+    "\u82e5 deterministic + OU \u4ecd 0.10:\u52a0\u5927 OU \u03c3=0.3(\u66f4\u5f3a\u6f02\u79fb)",
+    "\u82e5\u4ecd\u4e0d\u884c:OU \u03c3 schedule(\u521d\u671f 0.3,\u540e\u671f 0.05)",
+    "\u82e5\u6240\u6709 OU \u53d8\u4f53\u90fd\u4e0d\u884c:\u5b8c\u6574 TD3 \u66ff\u6362 SAC",
+    "OU + \u591a\u5206\u91cf dense reward \u7ec4\u5408(\u5b9e\u9a8c 8 + \u5b9e\u9a8c 9 \u60f3\u6cd5)\u2014 \u540e\u5907",
     "UTD > 1(\u5728\u63a2\u7d22\u7ed3\u6784\u95ee\u9898\u4fee\u590d\u540e\u518d\u8003\u8651)",
-    "MHER(lambda) \u2014 n-step HER \u53bb bias(\u5728\u63a2\u7d22\u7ed3\u6784\u4fee\u597d\u518d\u8003\u8651)",
-    "Critic-only LN(\u7b49\u63a2\u7d22\u7ed3\u6784\u4fee\u597d\u518d\u56de\u5934\u770b)"
+    "MHER(lambda) \u2014 n-step HER \u53bb bias(\u5728\u63a2\u7d22\u7ed3\u6784\u4fee\u597d\u518d\u8003\u8651)"
   ]
 }

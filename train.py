@@ -80,18 +80,6 @@ UPDATE_EVERY = 1                # gradient steps per env step
 N_UPDATES = 1                   # number of gradient updates per update cycle
 WARMUP_STEPS = 0                # steps with random actions after learning starts
 
-# Exploration noise (exp 9). Time-correlated Ornstein-Uhlenbeck noise added on
-# top of SAC's stochastic action, training only — eval still uses deterministic
-# policy via evaluate.py. SAC's i.i.d. Gaussian noise on a 4D action with 50-
-# step episodes never produces coordinated 'descend + close-gripper + lift'
-# sub-sequences; OU's θ=0.15 gives ~1/θ≈7-step temporal correlation, enough
-# to occasionally yield such sub-sequences. Lillicrap 2015 / Andrychowicz 2017
-# use this with DDPG+HER on the same FetchPick task family.
-USE_OU_NOISE = True
-OU_THETA = 0.15
-OU_SIGMA = 0.2
-OU_MU = 0.0
-
 # ---------------------------------------------------------------------------
 # Observation normalization
 # ---------------------------------------------------------------------------
@@ -125,31 +113,6 @@ class RunningMeanStd:
     def normalize(self, x):
         """Normalize observation, clipping to [-5, 5]."""
         return np.clip((x - self.mean) / np.sqrt(self.var + 1e-8), -5.0, 5.0).astype(np.float32)
-
-
-class OUNoise:
-    """Ornstein-Uhlenbeck process for time-correlated exploration noise.
-
-    dξ = θ(μ - ξ)dt + σ dW
-
-    With dt=1: ξ_{t+1} = ξ_t + θ(μ - ξ_t) + σ N(0,1).
-    Reset to μ at episode boundaries.
-    """
-
-    def __init__(self, action_dim, theta=OU_THETA, sigma=OU_SIGMA, mu=OU_MU):
-        self.action_dim = action_dim
-        self.theta = theta
-        self.sigma = sigma
-        self.mu = mu
-        self.state = np.full(action_dim, mu, dtype=np.float32)
-
-    def reset(self):
-        self.state[:] = self.mu
-
-    def sample(self):
-        noise = np.random.randn(self.action_dim).astype(np.float32)
-        self.state = self.state + self.theta * (self.mu - self.state) + self.sigma * noise
-        return self.state.copy()
 
 
 # ---------------------------------------------------------------------------
@@ -617,23 +580,14 @@ obs, info = env.reset()
 episode_step = 0
 episode_reward = 0.0
 
-# OU exploration noise (training only). Eval uses deterministic policy via
-# evaluate.py — no OU noise there.
-ou_noise = OUNoise(action_dim) if USE_OU_NOISE else None
-
 while True:
     t0 = time.time()
 
-    # Select action. SAC's stochastic sample + OU time-correlated noise on top.
-    # OU's ~7-step temporal correlation produces sustained directional motion
-    # that pure i.i.d. cannot, enabling occasional 'descend + close + lift'
-    # sub-sequences.
+    # Select action
     if total_steps < STEPS_BEFORE_LEARNING:
         action = env.action_space.sample()
     else:
         action = agent.select_action(obs, deterministic=False)
-        if ou_noise is not None:
-            action = np.clip(action + ou_noise.sample(), -1.0, 1.0)
 
     # Environment step
     next_obs, reward, terminated, truncated, info = env.step(action)
@@ -665,8 +619,6 @@ while True:
         obs, info = env.reset()
         episode_step = 0
         episode_reward = 0.0
-        if ou_noise is not None:
-            ou_noise.reset()
 
     # Learning
     if total_steps >= STEPS_BEFORE_LEARNING and total_steps % UPDATE_EVERY == 0:

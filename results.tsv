@@ -7,3 +7,4 @@ e81c811	0.000000	-50.0	dense reward fits well but alpha collapsed to 0; gripper 
 923cc76	0.100000	-45.0	最终 eval 等基线但被早停杀于 15 min;warmup 数据被后续稀释	discard	gripper-close warmup + 5000 步(单独)
 13c27a2	0.000000	-50.0	三合一组合反而崩到 0;dense reward 在 episode 内无梯度是根因	discard	三合一组合(gripper-close warmup + 固定 alpha + dense reward)
 eda3360	0.000000	-50.0	多分量 dense reward 反而劣于基线;reward shape 不是瓶颈,探索时间结构是	discard	多分量 dense reward(-||cube-goal|| - λ*||grip-cube||)+ 固定 alpha
+760c1fb	0.100000	-44.8	等基线 0.10 但 mean_distance 改进到 0.194,spot-eval 一度 0.20;OU 在帮但被 SAC 噪声稀释	discard	OU 时间相关噪声叠加在 SAC 随机采样之上

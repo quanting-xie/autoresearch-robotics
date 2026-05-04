@@ -21,3 +21,27 @@ Visible failure modes:
 
 Next suggestion:
 - Restore AT_GOAL_BONUS to 20 and revert N_UPDATES from 4 back to the proven N_UPDATES=3 baseline, then try a smoother final-placement reward instead of a lower flat bonus: add a small gaussian bump around the goal or increase goal shaping locally only when the gripper is near the block. This keeps the exp10 metric anchor while attacking the human-observed jerkiness more surgically.
+
+Exp 13 visual analysis (commit 0f52eeb)
+
+Quantitative result: eval_success_rate 0.000000, eval_mean_reward -50.000000, eval_mean_distance 0.289518. This regressed below the existing best of 0.200000 at commit 6b5cfd7 and below exp12's 0.100000.
+
+Observed behavior:
+- Episode 0: the gripper reaches table height near the block and goal marker but does not close around the block or push it to the goal. The block remains essentially stationary.
+- Episode 1: the gripper starts near the block, then hovers or stalls above it. There is no visible lift, carry, or sustained pushing motion.
+- Episode 2: the arm moves far across the table while the block remains behind. The goal marker is not reached by the object.
+
+Comparison to previous best:
+- No renders_best directory was present for direct image comparison. Relative to results.tsv, this run is a clear regression from exp10's 0.20 success and mean distance 0.147.
+
+Hypothesis assessment:
+- The hypothesis that damping the velocity bonus inside 10 cm of the goal would reduce jerkiness while preserving success was not confirmed. Removing the near-goal velocity incentive appears to have weakened the already fragile contact/transport behavior, producing no successes.
+
+Visible failure modes:
+- Approach without reliable grasp or push.
+- Object remains stationary in all sampled rollouts.
+- Policy sometimes moves the arm away from the object after reaching the table.
+- Damping the velocity term near the target removes useful shaping before the policy has learned stable transport.
+
+Next suggestion:
+- Discard the velocity-damping change and restore exp10 reward shaping. The next experiment should preserve the full velocity bonus and instead improve contact acquisition earlier in the trajectory, for example by rewarding gripper closure only when the gripper is close to the block.

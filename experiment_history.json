@@ -1,7 +1,7 @@
 {
   "best_commit": "6b5cfd7",
   "best_success_rate": 0.2,
-  "total_experiments": 12,
+  "total_experiments": 13,
   "experiments": [
     {
       "id": 12,
@@ -38,17 +38,57 @@
       "status": "discard",
       "hypothesis_confirmed": false,
       "lesson_learned": "The reduced at-goal bonus regressed success_rate from the existing 0.20 best to 0.10 and made behavior look like approach/hover rather than robust transport; the +20 placement incentive was load-bearing for the metric."
+    },
+    {
+      "id": 13,
+      "commit": "0f52eeb",
+      "timestamp": "2026-05-03T19:24:37",
+      "agent": "codex",
+      "description": "Kept exp10's N_UPDATES=3 and AT_GOAL_BONUS=20 anchor, but damped the block-velocity shaping bonus inside 10 cm of the goal.",
+      "hypothesis": "Exp10's +20 at-goal bonus is load-bearing; jerkiness may come from the velocity bonus continuing to reward block motion near the target. Scaling velocity bonus down inside 10 cm should preserve success while reducing near-goal overshoot.",
+      "changes_made": [
+        "Added VEL_DAMP_GOAL_RADIUS=0.10.",
+        "Scaled vel_bonus by min(d_block_goal / VEL_DAMP_GOAL_RADIUS, 1.0) in both HER replay reward recomputation and online reward logging.",
+        "Left N_UPDATES=3 and AT_GOAL_BONUS=20.0 unchanged from exp10."
+      ],
+      "metrics": {
+        "success_rate": 0.0,
+        "mean_reward": -50.0,
+        "mean_distance": 0.2895176034757112,
+        "total_steps": 82605,
+        "total_episodes": 1652,
+        "total_updates": 244815,
+        "peak_vram_mb": 28.97119140625
+      },
+      "vlm_feedback_summary": "gripper reaches or hovers near the block, but the block stays stationary and no sampled rollout succeeds",
+      "vlm_failure_modes": [
+        "approach without reliable grasp or push",
+        "object remains stationary in all sampled rollouts",
+        "arm sometimes moves away after reaching the table",
+        "near-goal velocity damping weakened useful transport shaping before stable manipulation emerged"
+      ],
+      "vlm_suggestions": [
+        "restore the full velocity bonus",
+        "preserve exp10's N_UPDATES=3 and AT_GOAL_BONUS=20 anchor",
+        "try contact-acquisition shaping, such as rewarding gripper closure only when the gripper is close to the block"
+      ],
+      "status": "discard",
+      "hypothesis_confirmed": false,
+      "lesson_learned": "The velocity bonus remains useful for this fragile policy; damping it inside 10 cm regressed success to 0.0 and eliminated visible object movement."
     }
   ],
   "insights": [
     "Existing results.tsv shows the best run is exp10 commit 6b5cfd7 with success_rate 0.20 using N_UPDATES=3.",
-    "AT_GOAL_BONUS=20 appears load-bearing for sparse eval success; reducing it to 5 lowered success_rate to 0.10."
+    "AT_GOAL_BONUS=20 appears load-bearing for sparse eval success; reducing it to 5 lowered success_rate to 0.10.",
+    "The block velocity bonus also appears load-bearing; damping it near the goal lowered success_rate to 0.0 and removed visible transport behavior."
   ],
   "failed_directions": [
-    "AT_GOAL_BONUS 20 -> 5 while using N_UPDATES=4: regressed success_rate to 0.10 and produced approach/hover behavior rather than reliable transport."
+    "AT_GOAL_BONUS 20 -> 5 while using N_UPDATES=4: regressed success_rate to 0.10 and produced approach/hover behavior rather than reliable transport.",
+    "Velocity bonus damping inside 10 cm of the goal: regressed success_rate to 0.0 and produced stationary-object rollouts."
   ],
   "promising_directions": [
     "Restore exp10 settings, then address jerkiness with a smoother local final-placement reward instead of lowering the flat at-goal bonus.",
-    "Ablate N_UPDATES=4 separately against N_UPDATES=3 only after returning the at-goal bonus to the metric-best value."
+    "Ablate N_UPDATES=4 separately against N_UPDATES=3 only after returning the at-goal bonus to the metric-best value.",
+    "Preserve the exp10 transport rewards and add more selective contact-acquisition shaping rather than weakening terminal or velocity transport incentives."
   ]
 }

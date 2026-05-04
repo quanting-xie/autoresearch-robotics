@@ -1,35 +1,34 @@
-Experiment 6 — visual analysis (UTD=2 on exp5 config, success_rate=0.30, REGRESSION)
+Experiment 7 — visual analysis (LR_ACTOR 3e-4 -> 1e-3, success_rate=0.60 NEW BEST)
 
-Frames: ./renders/ep{0,1,2}_{start,mid,end}.png; comparison: ./renders_best/ (exp5).
+Frames: ./renders/ep{0,1,2}_{start,mid,end}.png; comparison: ./renders_best/ (now updated to exp7).
 
-Quantitative summary:
-- success_rate 0.50 -> 0.30 (regression of 2 successes out of 10)
-- mean_distance 0.046 -> 0.057 (slightly worse, JUST above threshold)
-- mean_reward -23.7 -> -31.6
-- total_updates 1097 -> 1616 (+47%, as predicted)
-- total_steps 2097 -> 1808 (env steps dropped because each step costs more)
+Quantitative:
+- success_rate 0.50 -> 0.60 (+0.10)
+- mean_reward -23.7 -> -23.2 (slight improvement)
+- mean_distance 0.046 -> 0.047 (essentially unchanged)
+- total_updates 1097 -> 1096 (same; LR change doesn't affect throughput)
 
 Behavior:
-- ep0: gripper lands on goal cleanly (red dot at gripper tip). Hit.
-- ep1: gripper hovers SLIGHTLY ABOVE the goal (red dot visible just below gripper tip). Just-miss.
-- ep2: gripper position past the goal (red dot visible to its left at gripper base). Just-miss.
+- ep0: gripper descends but hovers SLIGHTLY ABOVE the red goal dot (red visible just below gripper tip). Just-miss.
+- ep1: gripper ends near the table edge with the red dot visible just to its lower-front. Possibly a hit, possibly just-miss.
+- ep2: gripper PRECISELY on the goal (red dot at gripper tip on table top). Clean hit.
 
-Comparison vs exp5 best frames:
-- Same general goal-tracking behavior — policy is not broken.
-- Precision regressed: in exp5 the gripper was on the goal in all 3 frames; now only ep0 is clean.
+Comparison vs exp5 (the previous best):
+- Same overall reach behavior — policy is unchanged in character.
+- One episode tipped from miss to hit (5/10 -> 6/10).
+- mean_distance is virtually identical (0.046 -> 0.047), so precision didn't structurally improve. The +1 hit is likely due to a borderline case crossing the threshold.
 
-Failure analysis (mechanism):
-- 1616 updates is more than 1097, so we'd naively expect better — instead we got worse.
-- Hypothesis: SAC with twin Q-networks but no ensemble has Q-overestimation bias. With UTD=1 the bias is small (target net updates frequently relative to Q updates). With UTD=2 each gradient step pushes Q a bit further from truth, and the actor follows that biased Q. Near the success boundary (where Q-values change rapidly with small action changes), the actor over-commits to the wrong direction.
-- Confirms the REDQ paper's claim: naive UTD>1 in SAC needs Q-bias correction (ensemble or dropout).
+Conclusion: LR_ACTOR=1e-3 gave a small real lift but the precision bottleneck remains. The critic Q-values near the goal boundary are still slightly imprecise — the actor is fast enough to find them but they themselves point in slightly-wrong directions for the last 1-2cm.
 
-Decision: DISCARD exp 6. Revert N_UPDATES to 1.
+Next attack — match the critic LR to the actor LR:
+- LR_CRITIC 3e-4 -> 1e-3 (currently 3e-4, while actor is 1e-3 after exp7).
+- Faster Q convergence -> actor receives sharper target gradients near goal boundary.
+- Risk: critic instability. Mitigated by: twin Q networks, target net at tau=0.005, dense reward (so target is informative).
 
-Plan exp 7: Try LR_ACTOR 3e-4 -> 1e-3.
-- Single-variable change.
-- Faster actor convergence within the existing ~1100 updates.
-- No additional grad steps -> no Q-overestimation accumulation.
-- Risk: actor instability if LR too high. Mitigation: 1e-3 is still within the standard SAC range (Spinning Up uses 1e-3).
-- Predict: success_rate 0.5 -> 0.6-0.8 (the policy reaches goal region; faster actor LR sharpens the descent precision).
+Predict: success_rate 0.6 -> 0.7-0.8. If the symmetric LR helps, exp 9 might bump tau too. If it diverges, fall back to LR_CRITIC=5e-4 in exp 9.
 
-If exp 7 also fails: try n-step returns (n=3) — stronger Q-targets directly attack the boundary-bias issue.
+Other levers in reserve (priority for later experiments):
+1. n-step returns (n=3): stronger value targets, directly attacks boundary bias.
+2. LayerNorm in critic trunk: stability boost, may enable safe retry of UTD>1.
+3. Tau bump 0.005 -> 0.02: faster target updates, may help precision.
+4. Increase HER_K from 4 to 8: more goal diversity in batch.

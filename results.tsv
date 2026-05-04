@@ -5,3 +5,4 @@ f7d61cf	0.000000	-50.0	visually identical to baseline; dense reward did not chan
 0fa95bd	0.000000	-50.0	new failure mode (arm extends past goal); still no goal-tracking	discard	smaller net 128x2 + batch 128 (only +9% updates; bottleneck is Python overhead, not GPU)
 309ddab	0.500000	-23.7	gripper lands precisely on goal across all 3 rendered episodes	keep	BREAKTHROUGH: AUTO_ALPHA=False + INIT_ALPHA=0.05 + dense reward (actor SNR fix)
 f307953	0.300000	-31.6	still goal-tracking but slightly less precise; small over/undershoot	discard	N_UPDATES 1->2 (UTD=2): +47% updates but actor over-commits to biased Q
+72eb4a3	0.600000	-23.2	one more episode tipped to hit; ep2 clean, ep0+ep1 just-misses	keep	LR_ACTOR 3e-4 -> 1e-3 (faster actor convergence within same ~1100 updates)

@@ -8,8 +8,8 @@
       "commit": "9630464",
       "timestamp": "2026-05-03T21:41:41",
       "agent": "opus-4.7",
-      "description": "Baseline SAC+HER, unmodified. 256x3 MLP, batch 256, buffer 200k, HER k=4 future, STEPS_BEFORE_LEARNING=1000, UPDATE_EVERY=1, N_UPDATES=1.",
-      "hypothesis": "Baseline establishes the reference point. Expect low success_rate because the 10s budget combined with STEPS_BEFORE_LEARNING=1000 leaves very few gradient updates available for SAC to actually learn anything.",
+      "description": "未做修改的 SAC+HER 基线。256x3 MLP,batch 256,buffer 200k,HER k=4 future,STEPS_BEFORE_LEARNING=1000,UPDATE_EVERY=1,N_UPDATES=1。",
+      "hypothesis": "基线用于建立参考点。预期 success_rate 偏低,因为 10s 的预算叠加 STEPS_BEFORE_LEARNING=1000,留给 SAC 真正进行学习的梯度更新次数极少。",
       "changes_made": [],
       "metrics": {
         "success_rate": 0.0,
@@ -20,30 +20,30 @@
         "total_updates": 853,
         "peak_vram_mb": 27.15185546875
       },
-      "vlm_feedback_summary": "Robot ignores the goal entirely; arm collapses downward into the table across all 3 episodes. In ep1 the gripper actually starts within the success threshold of the goal but the deterministic policy actively walks AWAY from it. Policy is effectively untrained.",
+      "vlm_feedback_summary": "机器人完全无视目标;3 个 episode 中机械臂均向下塌陷砸向桌面。ep1 中夹爪起始位置实际上已落在目标的成功阈值之内,但确定性 policy 反而主动远离目标。policy 实质上未经训练。",
       "vlm_failure_modes": [
-        "walks away from goal (no goal-tracking behavior)",
-        "arm collapses into table (strong downward bias in policy output)",
-        "ignores desired_goal portion of obs (similar end pose across different goals)",
-        "fails to exploit favorable starts (ep1 starts at goal, policy still leaves)"
+        "远离目标(无任何 goal-tracking 行为)",
+        "机械臂向下塌陷砸向桌面(policy 输出存在强烈向下偏置)",
+        "忽略 obs 中的 desired_goal 部分(不同目标下末端位姿相似)",
+        "未能利用有利的初始位置(ep1 起始即在目标处,policy 仍然离开)"
       ],
       "vlm_suggestions": [
-        "STEPS_BEFORE_LEARNING 1000 -> 100 (single highest-leverage change, doubles available gradient updates)",
-        "N_UPDATES 1 -> 4 (REDQ-style UTD, multiplies effective gradient signal)",
-        "dense reward shaping in training (-distance instead of sparse -1/0) for stronger gradient signal",
-        "smaller network (128x2 or 64x2) since obs is only 13-dim"
+        "STEPS_BEFORE_LEARNING 1000 -> 100(单项杠杆最大的改动,可使可用梯度更新数量翻倍)",
+        "N_UPDATES 1 -> 4(REDQ 风格的 UTD,成倍放大有效梯度信号)",
+        "训练时使用 dense reward shaping(用 -distance 替代稀疏的 -1/0)以提供更强的梯度信号",
+        "更小的网络(128x2 或 64x2),因为 obs 仅 13 维"
       ],
       "status": "keep",
       "hypothesis_confirmed": true,
-      "lesson_learned": "On a 10s wall-clock budget, the STEPS_BEFORE_LEARNING=1000 random warmup consumes ~54% of total env steps before any gradient update fires. Only 853 SAC updates total, far too few to train a 410k-param net even on FetchReach. The dominant constraint here is gradient steps, not env experience."
+      "lesson_learned": "在 10s wall-clock 预算下,STEPS_BEFORE_LEARNING=1000 的随机预热阶段在任何梯度更新触发之前就消耗了约 54% 的总环境步数。SAC 总共只更新了 853 次,远不足以训练一个 410k 参数的网络,即便是在 FetchReach 上。这里的主导约束是梯度步数,而非环境经验。"
     },
     {
       "id": 2,
       "commit": "a2c73ad",
       "timestamp": "2026-05-03T21:44:00",
       "agent": "opus-4.7",
-      "description": "STEPS_BEFORE_LEARNING 1000 -> 100. Single-variable change to test whether earlier learning lifts gradient-update count within 10s budget.",
-      "hypothesis": "Lowering the random pre-learning warmup from 1000 to 100 will roughly double total_updates within the same 10s budget (expecting ~1700 from ~1850 total steps), enough to lift success_rate above 0.0.",
+      "description": "STEPS_BEFORE_LEARNING 1000 -> 100。单变量改动,用于检验更早开始学习能否在 10s 预算内提升梯度更新次数。",
+      "hypothesis": "把随机预学习预热从 1000 降到 100,在相同的 10s 预算内 total_updates 大致会翻倍(预计在约 1850 总步下达到约 1700),足以把 success_rate 推到 0.0 以上。",
       "changes_made": [
         "STEPS_BEFORE_LEARNING: 1000 -> 100"
       ],
@@ -56,32 +56,32 @@
         "total_updates": 890,
         "peak_vram_mb": 27.15185546875
       },
-      "vlm_feedback_summary": "Robot still ignores goals; no goal-tracking behavior visible. ep2 shows a new failure mode (retract arm upward) not seen in exp1, but ep0/ep1 still collapse into the table. mean_distance dropped 0.61 -> 0.40 but driven by random end-pose distribution, not by reaching toward goals.",
+      "vlm_feedback_summary": "机器人仍然无视目标;看不到任何 goal-tracking 行为。ep2 出现了 exp1 中未见过的新失败模式(机械臂向上回缩),但 ep0/ep1 仍然塌陷到桌面。mean_distance 从 0.61 降到 0.40,但这是由随机末端位姿分布带来的,并非朝目标移动所致。",
       "vlm_failure_modes": [
-        "still no goal-tracking",
-        "arm collapses into table (ep0, ep1)",
-        "new failure: arm retracts upward into vertical posture (ep2)",
-        "policy direction is inconsistent across episodes \u2014 different default poses for similar starts"
+        "仍然没有 goal-tracking",
+        "机械臂塌陷到桌面(ep0、ep1)",
+        "新失败模式:机械臂向上回缩成竖直姿态(ep2)",
+        "policy 在不同 episode 间方向不一致 —— 相似起始位置下默认姿态各不相同"
       ],
       "vlm_suggestions": [
-        "STEPS_BEFORE_LEARNING change is neutral for total_updates; don't pursue alone",
-        "next attack: dense reward shaping in replay buffer (-distance instead of sparse)",
-        "if dense reward unlocks >0% success, layer UTD>1 (N_UPDATES=2-4) on exp 4"
+        "STEPS_BEFORE_LEARNING 改动对 total_updates 几乎中性;不要单独推进",
+        "下一个攻击方向:replay buffer 中的 dense reward shaping(用 -distance 替代稀疏奖励)",
+        "若 dense reward 能突破 0% 成功率,在 exp 4 上叠加 UTD>1(N_UPDATES=2-4)"
       ],
       "status": "discard",
       "hypothesis_confirmed": false,
-      "lesson_learned": "GPU throughput per gradient update is the binding constraint, not env-step count. Random pre-learning rollouts are essentially free (no sample, no grad), so reducing them barely affects total_updates (853 -> 890, +4.3%). Total env steps DROP (1853 -> 990) because once learning starts, every step pays for action sampling + grad update, slowing env-step rate to ~90 steps/sec. To get more updates in 10s, need faster grad steps (smaller net/batch) OR better sample efficiency per step (dense reward, n-step returns, REDQ/DroQ)."
+      "lesson_learned": "每次梯度更新的 GPU 吞吐才是绑定约束,而非环境步数。随机预学习 rollout 基本是零成本的(不采样、不算梯度),因此减少它们对 total_updates 几乎没有影响(853 -> 890,+4.3%)。total 环境步数反而下降(1853 -> 990),因为一旦开始学习,每一步都要支付 action sampling + 梯度更新的代价,把环境步速率拖到约 90 steps/sec。要在 10s 内拿到更多更新,要么加快梯度步(更小的网络/batch),要么提高每步的样本效率(dense reward、n-step returns、REDQ/DroQ)。"
     },
     {
       "id": 3,
       "commit": "f7d61cf",
       "timestamp": "2026-05-03T21:47:48",
       "agent": "opus-4.7",
-      "description": "Dense reward shaping in replay buffer: replace sparse {-1, 0} per-transition reward with -L2 distance(next_achieved, post-HER desired). Eval reward (env-defined) unchanged.",
-      "hypothesis": "Dense reward gives nonzero gradient signal on every transition (vs sparse, which is informative only within 5cm of goal). Expected first non-zero success_rate of the run.",
+      "description": "在 replay buffer 中引入 dense reward shaping:把每步稀疏的 {-1, 0} 奖励替换为 -L2 distance(next_achieved, post-HER desired)。评估奖励(env 定义)保持不变。",
+      "hypothesis": "dense reward 在每个 transition 上都给出非零梯度信号(而稀疏奖励仅在距离目标 5cm 之内才有信息)。预期会出现本轮首个非零的 success_rate。",
       "changes_made": [
-        "_compute_reward: -1/0 sparse -> -||achieved - desired|| dense",
-        "sample(): override stored env reward with dense reward computed from buffer next_achieved_goals + post-HER desired_goals (consistent regardless of HER fraction)"
+        "_compute_reward: -1/0 稀疏 -> -||achieved - desired|| dense",
+        "sample(): 用基于 buffer next_achieved_goals + post-HER desired_goals 计算的 dense reward 覆盖原本存储的环境奖励(无论 HER 比例多少结果都一致)"
       ],
       "metrics": {
         "success_rate": 0.0,
@@ -92,28 +92,28 @@
         "total_updates": 838,
         "peak_vram_mb": 27.15185546875
       },
-      "vlm_feedback_summary": "Behavior visually indistinguishable from baseline. Same 'arm collapses or retracts to default pose, ignores goal' failure across all 3 episodes. Dense reward changed signal quality but not training outcome.",
+      "vlm_feedback_summary": "视觉表现与基线难以区分。3 个 episode 都呈现同样的“机械臂塌陷或回缩到默认姿态、无视目标”的失败模式。dense reward 改变了信号质量,但没有改变训练结果。",
       "vlm_failure_modes": [
-        "still no goal-tracking (same as exp1)",
-        "arm retracts to LEFT/DOWN default pose regardless of goal location",
-        "deterministic eval policy outputs near-fixed action regardless of obs"
+        "仍然没有 goal-tracking(与 exp1 相同)",
+        "无论目标在哪,机械臂都回缩到 LEFT/DOWN 默认姿态",
+        "确定性评估 policy 几乎对 obs 不敏感,输出近乎固定的动作"
       ],
       "vlm_suggestions": [
-        "Root cause: too few grad updates (838) for SAC to converge. Auto-alpha starts at exp(0)=1.0 so entropy term DOMINATES actor loss in early training, regardless of reward signal quality.",
-        "Fix: attack update throughput directly. Smaller net (128x2) + smaller batch (128) should give ~3-5x more updates in 10s.",
-        "Dense reward is plausibly correct but insufficient alone \u2014 keep as a layered change for after smaller-net breaks 0%."
+        "根本原因:梯度更新太少(838),SAC 无法收敛。auto-alpha 起始为 exp(0)=1.0,因此训练早期 entropy 项主导 actor loss,与奖励信号质量无关。",
+        "修复方向:直接攻击更新吞吐。更小的网络(128x2)+ 更小的 batch(128)在 10s 内应能提供约 3-5 倍更新次数。",
+        "dense reward 方向上是合理的但单独不够 —— 保留为后续叠加项,等更小网络突破 0% 之后再用。"
       ],
       "status": "discard",
       "hypothesis_confirmed": false,
-      "lesson_learned": "Reward signal quality doesn't help when there are too few gradient updates for SAC to converge. With auto_alpha starting at alpha=1.0 and FetchReach Q-values O(-10), the entropy regularization term dominates the Q term in actor_loss for the first several thousand updates. Until alpha anneals down (which itself takes updates), the actor is being pushed toward random actions regardless of how clean the Q-target is. The 838-update budget is fundamentally pre-convergence."
+      "lesson_learned": "在梯度更新数量不足以让 SAC 收敛时,奖励信号质量于事无补。auto_alpha 从 alpha=1.0 起步,而 FetchReach 的 Q 值量级在 O(-10),前几千次更新中 actor_loss 里的 entropy 正则项会压过 Q 项。在 alpha 退火下来之前(其本身又需要更新次数),不论 Q-target 多干净,actor 都被推向随机动作。838 次更新的预算从根本上处于 pre-convergence 阶段。"
     },
     {
       "id": 4,
       "commit": "0fa95bd",
       "timestamp": "2026-05-03T21:51:26",
       "agent": "opus-4.7",
-      "description": "Shrink net 256x3 -> 128x2 (~13x fewer params) and halve batch 256 -> 128 to multiply grad-step throughput.",
-      "hypothesis": "Three previous 0% experiments suggest gradient-step count is the binding constraint. Shrinking the actor+critic and the batch should give 3-5x more updates within 10s, expected to break 0% success_rate.",
+      "description": "把网络从 256x3 缩到 128x2(参数约减少 13 倍),并把 batch 从 256 减半到 128,以放大梯度步吞吐。",
+      "hypothesis": "前三次实验都是 0% 成功率,提示绑定约束是梯度步数。缩小 actor+critic 与 batch 应在 10s 内提供 3-5 倍更新次数,预期能突破 0% success_rate。",
       "changes_made": [
         "HIDDEN_DIM: 256 -> 128",
         "N_LAYERS: 3 -> 2",
@@ -128,34 +128,34 @@
         "total_updates": 928,
         "peak_vram_mb": 18.76220703125
       },
-      "vlm_feedback_summary": "Different end-pose pattern (ep0 arm now EXTENDS outward instead of collapsing inward) but still no goal-tracking. mean_distance 0.52 (worse than exp2/3, in noise band). VRAM dropped 27->19 MB confirming smaller net, but total_updates only rose from 853 to 928 (+9%), far below predicted 3-5x.",
+      "vlm_feedback_summary": "末端位姿模式有所不同(ep0 中机械臂现在向外伸展而不是向内塌陷),但仍然没有 goal-tracking。mean_distance 0.52(比 exp2/3 还差,处于噪声区间)。VRAM 从 27 降到 19 MB,确认网络确实变小,但 total_updates 仅从 853 升到 928(+9%),远低于预测的 3-5 倍。",
       "vlm_failure_modes": [
-        "still no goal-tracking",
-        "ep0 shows new failure mode: arm extends past goal (overshooting baseline rest pose)",
-        "ep1, ep2 still poke down at table center"
+        "仍然没有 goal-tracking",
+        "ep0 出现新失败模式:机械臂越过目标向外伸展(超出基线静止位姿)",
+        "ep1、ep2 仍然戳向桌面中央"
       ],
       "vlm_suggestions": [
-        "Architectural shrinking is dead end on this setup \u2014 Python overhead dominates per-update cost, not GPU FLOPs.",
-        "Total updates appears capped at ~900-950 in 10s regardless of net size.",
-        "Pivot strategy: make each update count more. Attack the actor signal-to-noise problem with low fixed alpha + dense reward.",
-        "AUTO_ALPHA=False + INIT_ALPHA=0.05 + dense reward shaping is the next attack."
+        "在当前设置下缩小架构是死胡同 —— 单次更新成本由 Python 开销主导,而非 GPU FLOPs。",
+        "无论网络大小,10s 内 total updates 似乎都被卡在约 900-950。",
+        "策略转向:让每次更新更有价值。用低固定 alpha + dense reward 攻击 actor 信噪比问题。",
+        "下一步攻击:AUTO_ALPHA=False + INIT_ALPHA=0.05 + dense reward shaping。"
       ],
       "status": "discard",
       "hypothesis_confirmed": false,
-      "lesson_learned": "GPU FLOPs are NOT the dominant cost per gradient step on this setup. Shrinking the net 13x and the batch 2x only yielded +9% updates per second. The bottleneck is Python overhead in the per-step loop: HER's per-sample Python for-loop in buffer.sample(), per-step action sampling with .cpu().numpy() round-trips, buffer.add() episode tracking. Total grad updates per 10s is roughly capped at ~900-950 regardless of architecture choices. To make progress, optimize per-update QUALITY not quantity."
+      "lesson_learned": "在当前设置下,单次梯度步的主导成本并非 GPU FLOPs。把网络缩小 13 倍、batch 减半 2 倍,只换来 +9% 的每秒更新数。瓶颈在于每步循环中的 Python 开销:HER 在 buffer.sample() 中按样本的 Python for 循环、每步 action sampling 中 .cpu().numpy() 来回拷贝、buffer.add() 的 episode 跟踪。10s 内的 total 梯度更新数无论架构如何选择都大致被卡在约 900-950。要取得进展,应优化每次更新的“质量”,而非数量。"
     },
     {
       "id": 5,
       "commit": "309ddab",
       "timestamp": "2026-05-03T21:54:38",
       "agent": "opus-4.7",
-      "description": "BUNDLE attacking actor signal-to-noise: AUTO_ALPHA=False + INIT_ALPHA=0.05 (low fixed entropy coefficient) + dense reward shaping in replay buffer (-||achieved - desired||).",
-      "hypothesis": "Four 0% experiments suggest the 10s budget caps grad updates at ~900-1100 regardless of architecture. To make those updates count, fix the actor's signal-to-noise: low fixed alpha (0.05) bypasses the entropy domination of actor_loss that auto_alpha=1.0 causes; dense reward gives the Q-target a clean direction. Both are needed (each tried alone in earlier experiments produced 0%). Predict: first non-zero success_rate of the run.",
+      "description": "针对 actor 信噪比的组合改动:AUTO_ALPHA=False + INIT_ALPHA=0.05(低固定熵系数)+ replay buffer 中的 dense reward shaping(-||achieved - desired||)。",
+      "hypothesis": "四次 0% 实验提示 10s 预算把梯度更新数限制在约 900-1100,与架构无关。要让这些更新真正发挥作用,就要修复 actor 的信噪比:低固定 alpha(0.05)绕开 auto_alpha=1.0 导致的 entropy 主导 actor_loss 问题;dense reward 给 Q-target 一个干净的方向。两者缺一不可(早先实验中各自单独使用都得 0%)。预测:本轮首个非零 success_rate。",
       "changes_made": [
         "AUTO_ALPHA: True -> False",
         "INIT_ALPHA: 0.2 -> 0.05",
-        "_compute_reward: sparse {-1, 0} -> dense -L2 distance",
-        "sample(): override stored env reward with dense reward computed from buffer next_achieved_goals + post-HER desired_goals"
+        "_compute_reward: 稀疏 {-1, 0} -> dense -L2 distance",
+        "sample(): 用基于 buffer next_achieved_goals + post-HER desired_goals 计算的 dense reward 覆盖原本存储的环境奖励"
       ],
       "metrics": {
         "success_rate": 0.5,
@@ -166,28 +166,28 @@
         "total_updates": 1097,
         "peak_vram_mb": 27.14990234375
       },
-      "vlm_feedback_summary": "FIRST GOAL-TRACKING BEHAVIOR. Across all 3 rendered episodes the gripper descends to and lands precisely on the red goal dot. mean_distance 0.046 (13x better than baseline 0.61), success_rate 0.50 (5/10). Failures are JUST above the 5cm threshold \u2014 policy reaches the right region but doesn't perfectly fine-tune the last few cm.",
+      "vlm_feedback_summary": "首次出现 GOAL-TRACKING 行为。3 个渲染的 episode 中,夹爪都精准下降并落在红色目标点上。mean_distance 0.046(比基线 0.61 好 13 倍),success_rate 0.50(5/10)。失败的样本都刚刚超过 5cm 阈值 —— policy 已抵达正确区域,只是没把最后几厘米的精细调整做到位。",
       "vlm_failure_modes": [
-        "5/10 episodes fall just above the 5cm success threshold \u2014 fine-tuning precision missing",
-        "no obvious systematic visual failure remaining"
+        "5/10 episodes 刚刚超出 5cm 成功阈值 —— 缺少最后的精细调整精度",
+        "已无明显的系统性视觉失败"
       ],
       "vlm_suggestions": [
-        "N_UPDATES 1 -> 2 (UTD=2): more grad steps per env step to refine the last few cm of precision",
-        "LR_ACTOR bump: with Q-signal now clean, faster actor LR converges faster within budget",
-        "n-step returns (n=3): stronger value targets given dense reward",
-        "Future ablation (after pushing higher): is the win from low alpha, dense reward, or both?"
+        "N_UPDATES 1 -> 2(UTD=2):每个环境步多一次梯度步,用以打磨最后几厘米的精度",
+        "提高 LR_ACTOR:Q 信号已干净,更快的 actor LR 能在预算内更快收敛",
+        "n-step returns(n=3):在 dense reward 下提供更强的 value target",
+        "未来 ablation(在指标推得更高之后):增益来自低 alpha、dense reward 还是两者的组合?"
       ],
       "status": "keep",
       "hypothesis_confirmed": true,
-      "lesson_learned": "Default SAC auto_alpha=True with log_alpha=0 init starts at alpha=exp(0)=1.0, making entropy regularization dominate the Q term in actor_loss for the first 1-2k updates. This is fatal on a 10s budget where total updates is capped at ~1100. Pinning alpha low (0.05) AND giving Q a dense direction signal lets the actor converge to a working goal-tracking policy in ~1100 updates. Both ingredients were needed (each tried alone in earlier experiments produced 0% success). Bonus: total_updates went from 853 to 1097 (+29%) because skipping the alpha gradient step + having lower-entropy action sampling makes each iteration faster."
+      "lesson_learned": "默认 SAC auto_alpha=True 加上 log_alpha=0 初始化,起始 alpha=exp(0)=1.0,会让前 1-2k 次更新中 actor_loss 的 entropy 正则项压过 Q 项。在 10s 预算下 total updates 上限约 1100,这是致命的。把 alpha 钉在低值(0.05)同时给 Q 一个 dense 的方向信号,可以让 actor 在约 1100 次更新内收敛到一个能 goal-tracking 的可用 policy。两个要素缺一不可(早先实验中各自单独使用都是 0% 成功率)。附带收益:total_updates 从 853 升到 1097(+29%),因为跳过了 alpha 的梯度步、且采样更低熵的动作让每次迭代更快。"
     },
     {
       "id": 6,
       "commit": "f307953",
       "timestamp": "2026-05-03T21:58:01",
       "agent": "opus-4.7",
-      "description": "On exp5 working config (low fixed alpha + dense reward), bump UTD: N_UPDATES 1 -> 2.",
-      "hypothesis": "Exp5 hit 50% with mean_distance 0.046 — the misses are JUST above the 5cm threshold. Doubling grad steps per env step should give the actor more refinement passes within the 10s budget, pushing success_rate to 0.7+.",
+      "description": "在 exp5 可用配置(低固定 alpha + dense reward)上提升 UTD:N_UPDATES 1 -> 2。",
+      "hypothesis": "exp5 命中 50%,mean_distance 0.046 —— 漏掉的样本刚好在 5cm 阈值之上。把每个环境步的梯度步数翻倍,应能让 actor 在 10s 预算内多做几轮精修,把 success_rate 推到 0.7+。",
       "changes_made": [
         "N_UPDATES: 1 -> 2"
       ],
@@ -200,32 +200,32 @@
         "total_updates": 1616,
         "peak_vram_mb": 27.14990234375
       },
-      "vlm_feedback_summary": "Policy still goal-tracking but precision regressed: gripper hovers slightly above goal (ep1), overshoots slightly (ep2), hits cleanly only in ep0. mean_distance 0.057 sits just above the 5cm threshold. UTD=2 boosted total_updates 1097 -> 1616 (+47%) but the extra updates pushed actor over a slightly-biased Q at the goal boundary.",
+      "vlm_feedback_summary": "policy 仍能 goal-tracking,但精度退化:夹爪在目标上方略微悬停(ep1)、轻微越过目标(ep2),只有 ep0 干净命中。mean_distance 0.057 刚好高于 5cm 阈值。UTD=2 把 total_updates 从 1097 推到 1616(+47%),但额外的更新让 actor 越过了在目标边界处略带偏置的 Q。",
       "vlm_failure_modes": [
-        "small over/under-shooting around goal",
-        "actor over-committed to Q gradient with bias near success boundary"
+        "目标附近的小幅过冲/欠冲",
+        "actor 过度迎合 Q 梯度,在成功边界附近表现出偏差"
       ],
       "vlm_suggestions": [
-        "Discard UTD=2; bottleneck is no longer 'too few updates' but update QUALITY at goal boundary.",
-        "Try LR_ACTOR 3e-4 -> 1e-3: faster actor convergence within ~1100 updates without Q-bias risk.",
-        "Or n-step returns (n=3) for stronger value targets.",
-        "Or REDQ-style critic ensemble + dropout to safely re-enable UTD>1."
+        "丢弃 UTD=2;瓶颈已不再是“更新太少”,而是目标边界处的更新质量。",
+        "尝试 LR_ACTOR 3e-4 -> 1e-3:在约 1100 次更新内更快让 actor 收敛,且不引入 Q 偏置风险。",
+        "或使用 n-step returns(n=3)以获得更强的 value target。",
+        "或引入 REDQ 风格的 critic ensemble + dropout,以安全地重新启用 UTD>1。"
       ],
       "status": "discard",
       "hypothesis_confirmed": false,
-      "lesson_learned": "On the working exp5 config, more grad updates per env step is NOT strictly better. UTD=2 raised total_updates 47% but dropped success_rate 0.50 -> 0.30. At ~1100 updates the policy already converges to goal-tracking; extra updates over-commit the actor to Q-network biases (no ensemble = no bias correction). To push past 0.50, attack update QUALITY (faster actor LR, n-step returns, ensemble) not quantity."
+      "lesson_learned": "在可用的 exp5 配置上,“每个环境步更多梯度更新”并非严格更优。UTD=2 把 total_updates 推高 47%,却把 success_rate 从 0.50 降到 0.30。在约 1100 次更新时 policy 已经收敛到 goal-tracking,额外更新会让 actor 过度拟合 Q 网络的偏置(没有 ensemble 就无法做偏置修正)。要突破 0.50,应攻击更新质量(更快的 actor LR、n-step returns、ensemble),而非数量。"
     }
   ],
   "insights": [
-    "Gradient-step budget on a 10s wall-clock is ~850-1100 updates. Architectural shrinks (smaller net, smaller batch) only move it \u00b110% \u2014 Python overhead in the per-step loop dominates, not GPU FLOPs.",
-    "Total_steps is misleading \u2014 pre-learning random rollouts are free; learning steps cost ~10ms each. Don't optimize total_steps; optimize total_updates.",
-    "Default SAC auto_alpha=True with log_alpha=0 init starts at alpha=exp(0)=1.0, making the entropy term dominate the Q term in actor_loss for the first 1-2k updates. On a 10s/1100-update budget this is fatal \u2014 by the time alpha anneals, training is over. CONFIRMED FIX: pin alpha low (0.05, AUTO_ALPHA=False).",
-    "Reward signal quality (dense -L2 distance vs sparse -1/0) is necessary but NOT sufficient \u2014 exp3 showed dense alone with auto_alpha gets 0%. Pairs synergistically with low fixed alpha to give the actor a clean Q direction it actually follows.",
+    "Gradient-step budget on a 10s wall-clock is ~850-1100 updates. Architectural shrinks (smaller net, smaller batch) only move it ±10% — Python overhead in the per-step loop dominates, not GPU FLOPs.",
+    "Total_steps is misleading — pre-learning random rollouts are free; learning steps cost ~10ms each. Don't optimize total_steps; optimize total_updates.",
+    "Default SAC auto_alpha=True with log_alpha=0 init starts at alpha=exp(0)=1.0, making the entropy term dominate the Q term in actor_loss for the first 1-2k updates. On a 10s/1100-update budget this is fatal — by the time alpha anneals, training is over. CONFIRMED FIX: pin alpha low (0.05, AUTO_ALPHA=False).",
+    "Reward signal quality (dense -L2 distance vs sparse -1/0) is necessary but NOT sufficient — exp3 showed dense alone with auto_alpha gets 0%. Pairs synergistically with low fixed alpha to give the actor a clean Q direction it actually follows.",
     "Bonus from low fixed alpha: total_updates rises from ~850 to ~1100 (+29%), because skipping the alpha optimizer step + lower-variance action sampling shaves per-iteration cost."
   ],
   "failed_directions": [
     "STEPS_BEFORE_LEARNING 1000 -> 100 alone (exp2): only +4% updates, 0% success_rate. The lever was wrong; not the warmup but the per-update cost.",
-    "Dense reward shaping alone (exp3): 0% success_rate; behavior visually unchanged. Reward signal quality cannot compensate for too-few gradient updates. Auto-alpha at init=1.0 means entropy term dominates actor loss until alpha anneals \u2014 and that itself takes more updates than 838.",
+    "Dense reward shaping alone (exp3): 0% success_rate; behavior visually unchanged. Reward signal quality cannot compensate for too-few gradient updates. Auto-alpha at init=1.0 means entropy term dominates actor loss until alpha anneals — and that itself takes more updates than 838.",
     "Smaller net (128x2) + smaller batch (128) (exp4): only +9% updates, 0% success_rate. GPU FLOPs are not the bottleneck; Python overhead in per-step loop is. Architectural shrinking is a dead end here."
   ],
   "promising_directions": [

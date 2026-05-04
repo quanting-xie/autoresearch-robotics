@@ -57,8 +57,8 @@ N_LAYERS = 3                # number of hidden layers
 ACTIVATION = "relu"         # activation function: "relu", "tanh", "gelu"
 
 # SAC optimization
-LR_ACTOR = 1e-3             # actor learning rate (exp7: was 3e-4; bumped 3.3x to refine precision in same ~1100 updates)
-LR_CRITIC = 3e-4            # critic learning rate
+LR_ACTOR = 1e-3             # actor learning rate (exp7: was 3e-4)
+LR_CRITIC = 1e-3            # critic learning rate (exp8: was 3e-4; matched to actor LR for sharper Q convergence at goal boundary)
 GAMMA = 0.98                # discount factor
 TAU = 0.005                 # soft target update rate
 INIT_ALPHA = 0.05           # entropy coefficient (exp5: low fixed; was 0.2)

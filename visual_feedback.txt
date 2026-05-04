@@ -93,3 +93,27 @@ Visible failure modes:
 
 Next suggestion:
 - Restore N_UPDATES=3 and preserve the exp10 reward anchor. Instead of rewarding arbitrary block displacement alone, add a capped positive bonus for reducing block-goal distance between consecutive steps so pushes are directed toward the target.
+
+Exp 16 visual analysis (commit ae0e2f0)
+
+Quantitative result: eval_success_rate 0.000000, eval_mean_reward -50.000000, eval_mean_distance 0.254525. Mean distance improved relative to recent failures but sparse success fell to zero.
+
+Observed behavior:
+- Episode 0: the arm moves away from the block after start; the block remains near but not on the goal.
+- Episode 1: the gripper descends around the block/goal area but ends beside the block without placing it at the target.
+- Episode 2: the block starts close to the goal marker, but the gripper moves off to the side and the object stays just outside success.
+
+Comparison to previous best:
+- No renders_best directory is available. Relative to exp10, final distances are closer than some failed runs but not enough to cross the fixed 0.05 success threshold.
+
+Hypothesis assessment:
+- The hypothesis that a capped goal-progress bonus would make transport more goal-directed was not confirmed. It improved mean distance but did not create successful placements and appears to leave the policy satisfied with near-misses.
+
+Visible failure modes:
+- Near-goal states remain just outside the success threshold.
+- The gripper often moves away after getting close.
+- Object motion is still inconsistent; the local progress signal is not enough to finish placement.
+- Late critic loss spikes suggest the added temporal progress reward increased value noise.
+
+Next suggestion:
+- Discard the progress bonus and restore exp10 shaping. Try a smoother local final-placement reward around the goal instead of a stepwise progress term, keeping AT_GOAL_BONUS=20 as the hard success incentive.

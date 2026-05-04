@@ -1,7 +1,7 @@
 {
   "best_commit": "6b5cfd7",
   "best_success_rate": 0.2,
-  "total_experiments": 15,
+  "total_experiments": 16,
   "experiments": [
     {
       "id": 12,
@@ -148,6 +148,43 @@
       "status": "discard",
       "hypothesis_confirmed": false,
       "lesson_learned": "RR=4 with AT_GOAL_BONUS=20 is better than the confounded exp12 but still below the RR=3 best; the fixed wall-clock budget favors more environment diversity over a fourth update."
+    },
+    {
+      "id": 16,
+      "commit": "ae0e2f0",
+      "timestamp": "2026-05-03T21:01:07",
+      "agent": "codex",
+      "description": "Added a capped bonus for reducing block-goal distance between consecutive steps while preserving exp10 rewards.",
+      "hypothesis": "Current velocity shaping rewards arbitrary block motion, while visual rollouts show weak or misdirected transport. A capped +5 bonus for reductions in block-goal distance should make pushes more goal-directed.",
+      "changes_made": [
+        "Added GOAL_PROGRESS_COEF=100.0 and MAX_GOAL_PROGRESS_BONUS=5.0.",
+        "Computed positive progress as max(previous block-goal distance - current block-goal distance, 0).",
+        "Included the capped progress bonus in both online reward and HER reward recomputation."
+      ],
+      "metrics": {
+        "success_rate": 0.0,
+        "mean_reward": -50.0,
+        "mean_distance": 0.2545249300681899,
+        "total_steps": 78541,
+        "total_episodes": 1570,
+        "total_updates": 232623,
+        "peak_vram_mb": 28.97119140625
+      },
+      "vlm_feedback_summary": "mean distance improves, but rollouts show near-misses and the block remains just outside the success threshold",
+      "vlm_failure_modes": [
+        "near-goal states remain outside the 0.05 success threshold",
+        "gripper often moves away after getting close",
+        "object motion remains inconsistent",
+        "late critic loss spikes suggest noisier value targets"
+      ],
+      "vlm_suggestions": [
+        "remove the goal-progress bonus",
+        "restore exp10 reward shaping",
+        "try a smoother local final-placement reward around the goal while preserving AT_GOAL_BONUS=20"
+      ],
+      "status": "discard",
+      "hypothesis_confirmed": false,
+      "lesson_learned": "Goal-progress shaping improves final distance but does not produce sparse successes; this task needs stronger local final-placement pressure rather than a temporal progress bonus alone."
     }
   ],
   "insights": [
@@ -155,13 +192,15 @@
     "AT_GOAL_BONUS=20 appears load-bearing for sparse eval success; reducing it to 5 lowered success_rate to 0.10.",
     "The block velocity bonus also appears load-bearing; damping it near the goal lowered success_rate to 0.0 and removed visible transport behavior.",
     "Near-block close-command shaping did not improve success; contact acquisition alone is insufficient without better goal-directed transport.",
-    "N_UPDATES=4 with AT_GOAL_BONUS=20 recovers 0.10 success but remains below N_UPDATES=3, suggesting RR=3 is the better wall-clock tradeoff."
+    "N_UPDATES=4 with AT_GOAL_BONUS=20 recovers 0.10 success but remains below N_UPDATES=3, suggesting RR=3 is the better wall-clock tradeoff.",
+    "Goal-progress shaping improved mean distance to 0.255 but yielded 0.0 success, indicating near-miss behavior without final placement."
   ],
   "failed_directions": [
     "AT_GOAL_BONUS 20 -> 5 while using N_UPDATES=4: regressed success_rate to 0.10 and produced approach/hover behavior rather than reliable transport.",
     "Velocity bonus damping inside 10 cm of the goal: regressed success_rate to 0.0 and produced stationary-object rollouts.",
     "Close-command bonus gated within 6 cm of the block: regressed success_rate to 0.0 and caused weak or misdirected contact without transport.",
-    "N_UPDATES 3 -> 4 with AT_GOAL_BONUS=20: recovered only 0.10 success and showed early loss spikes plus weak transport."
+    "N_UPDATES 3 -> 4 with AT_GOAL_BONUS=20: recovered only 0.10 success and showed early loss spikes plus weak transport.",
+    "Capped block-goal progress bonus: improved mean distance but regressed success to 0.0 and produced near-misses."
   ],
   "promising_directions": [
     "Restore exp10 settings, then address jerkiness with a smoother local final-placement reward instead of lowering the flat at-goal bonus.",

@@ -14,3 +14,4 @@ df5741c	0.100000	-45.0	BREAKTHROUGH: ep1 shows gripper grasping block at goal-do
 82df6c2	0.000000	-50.000000	gripper posture changes near block, but contact is weak/misdirected and block is not transported	discard	close-command bonus gated near block
 7772d58	0.100000	-45.000000	RR=4 recovers one success but sampled frames still show weak or absent goal-directed block transport	discard	N_UPDATES 3 -> 4 with AT_GOAL_BONUS 20
 ae0e2f0	0.000000	-50.000000	mean distance improves to 0.255, but frames show near-misses and no successful final placement	discard	capped block-goal progress bonus
+3b9051a	0.000000	-50.000000	arm retracts/lifts away while block stays stationary; mean distance worsens to 0.376	discard	smooth Gaussian near-goal bonus

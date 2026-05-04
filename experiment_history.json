@@ -1,7 +1,7 @@
 {
   "best_commit": "6b5cfd7",
   "best_success_rate": 0.2,
-  "total_experiments": 16,
+  "total_experiments": 17,
   "experiments": [
     {
       "id": 12,
@@ -185,6 +185,42 @@
       "status": "discard",
       "hypothesis_confirmed": false,
       "lesson_learned": "Goal-progress shaping improves final distance but does not produce sparse successes; this task needs stronger local final-placement pressure rather than a temporal progress bonus alone."
+    },
+    {
+      "id": 17,
+      "commit": "3b9051a",
+      "timestamp": "2026-05-03T21:33:44",
+      "agent": "codex",
+      "description": "Added a smooth Gaussian local bonus around the block-goal target while preserving AT_GOAL_BONUS=20.",
+      "hypothesis": "Exp16 improved mean distance but left near-misses outside the 0.05 success threshold. A smooth Gaussian bonus around the goal should provide local placement pressure while the hard at-goal bonus remains the success incentive.",
+      "changes_made": [
+        "Added LOCAL_GOAL_BONUS=10.0 and LOCAL_GOAL_SIGMA=0.10.",
+        "Added LOCAL_GOAL_BONUS * exp(-(d_block_goal / LOCAL_GOAL_SIGMA)^2) to online and HER recomputed rewards."
+      ],
+      "metrics": {
+        "success_rate": 0.0,
+        "mean_reward": -50.0,
+        "mean_distance": 0.3759172112185999,
+        "total_steps": 83710,
+        "total_episodes": 1674,
+        "total_updates": 248130,
+        "peak_vram_mb": 28.97119140625
+      },
+      "vlm_feedback_summary": "arm retracts or lifts away while the block stays stationary; smooth near-goal bonus destabilizes without improving contact",
+      "vlm_failure_modes": [
+        "arm retracts or lifts away from the object",
+        "block remains stationary in sampled rollouts",
+        "mean distance worsens substantially",
+        "critic loss stays high for much of training"
+      ],
+      "vlm_suggestions": [
+        "remove the Gaussian local-goal bonus",
+        "restore exp10 reward shaping",
+        "if increasing final-placement pressure, change the existing hard at-goal bonus rather than adding broad dense positive reward"
+      ],
+      "status": "discard",
+      "hypothesis_confirmed": false,
+      "lesson_learned": "A broad +10 Gaussian near-goal bonus is too large for the current shaped reward scale; it inflated value targets and regressed behavior to arm retraction without object movement."
     }
   ],
   "insights": [
@@ -193,14 +229,16 @@
     "The block velocity bonus also appears load-bearing; damping it near the goal lowered success_rate to 0.0 and removed visible transport behavior.",
     "Near-block close-command shaping did not improve success; contact acquisition alone is insufficient without better goal-directed transport.",
     "N_UPDATES=4 with AT_GOAL_BONUS=20 recovers 0.10 success but remains below N_UPDATES=3, suggesting RR=3 is the better wall-clock tradeoff.",
-    "Goal-progress shaping improved mean distance to 0.255 but yielded 0.0 success, indicating near-miss behavior without final placement."
+    "Goal-progress shaping improved mean distance to 0.255 but yielded 0.0 success, indicating near-miss behavior without final placement.",
+    "A broad +10 Gaussian local-goal bonus destabilized value learning and worsened mean distance to 0.376."
   ],
   "failed_directions": [
     "AT_GOAL_BONUS 20 -> 5 while using N_UPDATES=4: regressed success_rate to 0.10 and produced approach/hover behavior rather than reliable transport.",
     "Velocity bonus damping inside 10 cm of the goal: regressed success_rate to 0.0 and produced stationary-object rollouts.",
     "Close-command bonus gated within 6 cm of the block: regressed success_rate to 0.0 and caused weak or misdirected contact without transport.",
     "N_UPDATES 3 -> 4 with AT_GOAL_BONUS=20: recovered only 0.10 success and showed early loss spikes plus weak transport.",
-    "Capped block-goal progress bonus: improved mean distance but regressed success to 0.0 and produced near-misses."
+    "Capped block-goal progress bonus: improved mean distance but regressed success to 0.0 and produced near-misses.",
+    "Broad Gaussian local-goal bonus: regressed success to 0.0, worsened mean distance to 0.376, and caused arm retraction."
   ],
   "promising_directions": [
     "Restore exp10 settings, then address jerkiness with a smoother local final-placement reward instead of lowering the flat at-goal bonus.",

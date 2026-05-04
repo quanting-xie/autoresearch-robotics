@@ -117,3 +117,27 @@ Visible failure modes:
 
 Next suggestion:
 - Discard the progress bonus and restore exp10 shaping. Try a smoother local final-placement reward around the goal instead of a stepwise progress term, keeping AT_GOAL_BONUS=20 as the hard success incentive.
+
+Exp 17 visual analysis (commit 3b9051a)
+
+Quantitative result: eval_success_rate 0.000000, eval_mean_reward -50.000000, eval_mean_distance 0.375917. This is a major regression from the exp10 best and from exp16's mean distance.
+
+Observed behavior:
+- Episode 0: the arm retracts upward/back toward the robot while the block remains on the table.
+- Episode 1: the gripper descends near the table but does not move the block; by the end the object is still far from the red marker.
+- Episode 2: the arm lifts high above and away from the table, leaving the block stationary.
+
+Comparison to previous best:
+- No renders_best directory is available. Compared with exp10 and exp16, the smooth local bonus worsened both sparse success and final distance.
+
+Hypothesis assessment:
+- The hypothesis that a Gaussian near-goal bonus would convert near-misses into successes was not confirmed. The bonus inflated value targets, produced sustained high critic losses, and the policy avoided useful contact.
+
+Visible failure modes:
+- Arm retracts or lifts away from the object.
+- Block remains stationary in sampled rollouts.
+- Mean distance worsens substantially.
+- Critic loss stays high for much of training, indicating the bonus scale is too large for the current recipe.
+
+Next suggestion:
+- Remove the local Gaussian bonus and restore exp10 shaping. If increasing final-placement pressure, prefer a narrower change to the existing hard at-goal bonus rather than adding broad positive dense reward.

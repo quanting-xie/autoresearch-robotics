@@ -8,6 +8,7 @@ Usage:
     python evaluate.py --render     # verify rendering pipeline
 """
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -15,6 +16,55 @@ from pathlib import Path
 import numpy as np
 
 from prepare import make_env, flatten_obs, get_action_dim, ENV_ID, FRAME_WIDTH, FRAME_HEIGHT
+
+# ---------------------------------------------------------------------------
+# Protocol guard (DO NOT MODIFY OR REMOVE)
+# ---------------------------------------------------------------------------
+# Refuses to load if the most recent experiment in experiment_history.json
+# has empty bookkeeping fields. The agent's program.md mandates that the
+# SYNTHESIZE step (step 6) be completed before running another experiment.
+# Without this guard the agent loop drifts under context pressure: it runs
+# train.py without ever filling in hypothesis/lesson/vlm fields, so each
+# subsequent ANALYZE has no real memory and the loop becomes random search.
+
+def _check_prior_bookkeeping_complete():
+    p = Path("./experiment_history.json")
+    if not p.exists():
+        return  # first experiment; nothing to check
+    try:
+        h = json.loads(p.read_text())
+    except Exception:
+        return  # malformed json; let the rest of the script handle it
+    exps = h.get("experiments", []) or []
+    if not exps:
+        return
+    last = exps[-1]
+    required = ("hypothesis", "vlm_feedback_summary", "status", "lesson_learned")
+    missing = [k for k in required if not (last.get(k) or "").strip()]
+    if not missing:
+        return
+    raise RuntimeError(
+        f"\n"
+        f"────────────────────────────────────────────────────────────\n"
+        f"PROTOCOL VIOLATION — bookkeeping incomplete for experiment {last.get('id')}.\n"
+        f"\n"
+        f"Missing fields: {missing}\n"
+        f"\n"
+        f"Per program.md step 6 (SYNTHESIZE), every experiment must have\n"
+        f"hypothesis / vlm_feedback_summary / status / lesson_learned filled\n"
+        f"before another experiment can run. The training script will not\n"
+        f"start until you backfill the latest entry.\n"
+        f"\n"
+        f"To fix:\n"
+        f"  1. Read renders_archive/exp{last.get('id')}/*.png for visual context\n"
+        f"     (or `git show {last.get('commit') or 'HEAD'}` if archive is missing)\n"
+        f"  2. Update the empty fields in experiment_history.json\n"
+        f"  3. Commit experiment_history.json (`git add experiment_history.json && git commit`)\n"
+        f"  4. Re-run `uv run train.py --headless`\n"
+        f"────────────────────────────────────────────────────────────"
+    )
+
+_check_prior_bookkeeping_complete()
 
 # ---------------------------------------------------------------------------
 # Constants (fixed, do not modify)

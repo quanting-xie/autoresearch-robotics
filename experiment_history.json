@@ -1,7 +1,7 @@
 {
   "best_commit": "6b5cfd7",
   "best_success_rate": 0.2,
-  "total_experiments": 19,
+  "total_experiments": 20,
   "experiments": [
     {
       "id": 12,
@@ -297,6 +297,43 @@
       "status": "discard",
       "hypothesis_confirmed": false,
       "lesson_learned": "The complete exp10 recipe does not transfer cleanly onto the early-stop sparse runner. Replay ratio 3 plus dense shaping and critic target changes caused early noisy value learning and no-progress early stop, so future tests should isolate one factor at a time."
+    },
+    {
+      "id": 20,
+      "commit": "81547b4",
+      "timestamp": "2026-05-03T22:48:43",
+      "agent": "codex",
+      "description": "Isolated replay-ratio test on the sparse early-stop baseline: changed only N_UPDATES from 1 to 2.",
+      "hypothesis": "Exp18 showed sparse N_UPDATES=1 with early-stop can tie the 0.20 best, while exp19 failed because too many factors changed at once. Increasing only N_UPDATES to 2 should improve sample reuse without reintroducing dense shaping instability.",
+      "changes_made": [
+        "Set N_UPDATES=2 in train.py.",
+        "Kept sparse reward recomputation, no dense shaping, no LayerNorm critic, and the existing early-stop infrastructure unchanged."
+      ],
+      "metrics": {
+        "success_rate": 0.0,
+        "mean_reward": -50.0,
+        "mean_distance": 0.28649096729481904,
+        "total_steps": 50424,
+        "total_episodes": 1008,
+        "total_updates": 98848,
+        "peak_vram_mb": 27.40087890625
+      },
+      "vlm_feedback_summary": "N_UPDATES=2 regressed sparse success to zero; sampled rollouts show approach or retreat with no useful object transport",
+      "vlm_failure_modes": [
+        "all spot evals were zero: 0.00, 0.00, 0.00",
+        "critic loss rose from below 1 to around 18.8 by 50k steps",
+        "episode 0 hovered on the robot side of the table while the block stayed off target",
+        "episode 1 started with the block near the goal but the arm moved away and failed to finish placement",
+        "episode 2 approached beside the block but did not push it to the goal"
+      ],
+      "vlm_suggestions": [
+        "restore N_UPDATES=1 sparse early-stop baseline",
+        "avoid increasing sparse replay ratio without another stabilizer",
+        "next isolate a very small contact or action prior rather than increasing update count"
+      ],
+      "status": "discard",
+      "hypothesis_confirmed": false,
+      "lesson_learned": "Increasing sparse replay ratio from 1 to 2 reduced wall-clock exploration and increased critic error without producing any successful spot evals. The early-stop sparse baseline appears sensitive to extra updates."
     }
   ],
   "insights": [
@@ -308,7 +345,8 @@
     "Goal-progress shaping improved mean distance to 0.255 but yielded 0.0 success, indicating near-miss behavior without final placement.",
     "A broad +10 Gaussian local-goal bonus destabilized value learning and worsened mean distance to 0.376.",
     "Sparse N_UPDATES=1 with long-ceiling early-stop instrumentation tied the 0.20 best success rate, but visual rollouts still lacked robust transport.",
-    "Fully restoring exp10 shaping, LayerNorm critic, Q_MIN clamp, and N_UPDATES=3 on top of early-stop instrumentation regressed to 0.0 success."
+    "Fully restoring exp10 shaping, LayerNorm critic, Q_MIN clamp, and N_UPDATES=3 on top of early-stop instrumentation regressed to 0.0 success.",
+    "Sparse N_UPDATES=2 also regressed to 0.0 success, suggesting the N_UPDATES=1 early-stop setup is the better current infrastructure anchor."
   ],
   "failed_directions": [
     "AT_GOAL_BONUS 20 -> 5 while using N_UPDATES=4: regressed success_rate to 0.10 and produced approach/hover behavior rather than reliable transport.",
@@ -317,12 +355,13 @@
     "N_UPDATES 3 -> 4 with AT_GOAL_BONUS=20: recovered only 0.10 success and showed early loss spikes plus weak transport.",
     "Capped block-goal progress bonus: improved mean distance but regressed success to 0.0 and produced near-misses.",
     "Broad Gaussian local-goal bonus: regressed success to 0.0, worsened mean distance to 0.376, and caused arm retraction.",
-    "Full exp10 recipe on early-stop sparse infrastructure: regressed success to 0.0 and hit no-progress early stop after spot evals 0.20, 0.00, 0.00, 0.00."
+    "Full exp10 recipe on early-stop sparse infrastructure: regressed success to 0.0 and hit no-progress early stop after spot evals 0.20, 0.00, 0.00, 0.00.",
+    "Sparse N_UPDATES 1 -> 2 on early-stop infrastructure: regressed success to 0.0, produced all-zero spot evals, and raised critic loss late in the run."
   ],
   "promising_directions": [
     "Restore exp10 settings, then address jerkiness with a smoother local final-placement reward instead of lowering the flat at-goal bonus.",
     "Ablate N_UPDATES=4 separately against N_UPDATES=3 only after returning the at-goal bonus to the metric-best value.",
     "Preserve the exp10 transport rewards and add more selective contact-acquisition shaping rather than weakening terminal or velocity transport incentives.",
-    "Use the sparse early-stop baseline as the current infrastructure anchor and test isolated changes, especially N_UPDATES=2 or a single lightweight shaping term."
+    "Use the sparse early-stop baseline with N_UPDATES=1 as the current infrastructure anchor and test isolated lightweight shaping or action-prior changes."
   ]
 }

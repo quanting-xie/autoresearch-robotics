@@ -189,3 +189,27 @@ Visible failure modes:
 
 Next suggestion:
 - Discard the full exp10 restore and return to the sparse early-stop baseline. If continuing, isolate factors one at a time, starting with N_UPDATES=2 or a single lightweight shaping term rather than replay ratio, dense rewards, LayerNorm, and target clamp together.
+
+Exp 20 visual analysis (commit 81547b4)
+
+Quantitative result: eval_success_rate 0.000000, eval_mean_reward -50.000000, eval_mean_distance 0.286491. Training stopped after 900.0s at 50424 steps with early_stop_reason "no-progress - 600s elapsed, last 3 spot-evals all 0". Spot eval history was [0.00, 0.00, 0.00].
+
+Observed behavior:
+- Episode 0: the arm moves to the robot side of the table and hovers while the block stays off target.
+- Episode 1: the block starts close to the red marker, but the arm pulls away instead of finishing placement.
+- Episode 2: the gripper approaches near the block, then ends beside it without pushing or placing it at the goal.
+
+Comparison to previous best:
+- This is worse than exp18's sparse N_UPDATES=1 result, which tied 0.20 success. N_UPDATES=2 reduced wall-clock exploration and ended with zero final successes.
+
+Hypothesis assessment:
+- The hypothesis was not confirmed. Extra sparse replay updates did not stabilize spot evals; all three spot evals were zero and critic loss rose late in the run.
+
+Visible failure modes:
+- No spot-eval success at any point.
+- Critic loss drifted upward from below 1 to roughly 18.8 by 50k steps.
+- The gripper approaches or hovers but does not maintain useful object contact.
+- The block remains off target in all sampled rollouts.
+
+Next suggestion:
+- Restore N_UPDATES=1. Avoid increasing sparse replay ratio without another stabilizer; the next isolated test should be a very small contact or action prior on the sparse early-stop baseline.

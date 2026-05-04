@@ -95,6 +95,7 @@ SHAPING_GRIP_COEF = 1.0
 SHAPING_GOAL_COEF = 5.0
 SHAPING_VEL_COEF = 100.0
 MAX_VEL_BONUS = 10.0
+VEL_DAMP_GOAL_RADIUS = 0.10
 AT_GOAL_BONUS = 20.0
 AT_GOAL_THRESHOLD = 0.05
 
@@ -306,6 +307,7 @@ class ReplayBuffer:
         d_grip_block = np.linalg.norm(grip_pos - next_achieved_goal, axis=-1).astype(np.float32)
         block_delta = np.linalg.norm(next_achieved_goal - achieved_goal, axis=-1).astype(np.float32)
         vel_bonus = np.minimum(SHAPING_VEL_COEF * block_delta, MAX_VEL_BONUS).astype(np.float32)
+        vel_bonus *= np.minimum(d_block_goal / VEL_DAMP_GOAL_RADIUS, 1.0).astype(np.float32)
         at_goal_bonus = (d_block_goal < AT_GOAL_THRESHOLD).astype(np.float32) * AT_GOAL_BONUS
         return (sparse
                 - SHAPING_GRIP_COEF * d_grip_block
@@ -630,6 +632,7 @@ while True:
     d_block_goal = float(np.linalg.norm(block_pos - goal_pos))
     block_delta = float(np.linalg.norm(block_pos - block_pos_before))
     vel_bonus = min(SHAPING_VEL_COEF * block_delta, MAX_VEL_BONUS)
+    vel_bonus *= min(d_block_goal / VEL_DAMP_GOAL_RADIUS, 1.0)
     at_goal_bonus = AT_GOAL_BONUS if d_block_goal < AT_GOAL_THRESHOLD else 0.0
     reward = (float(env_reward)
               - SHAPING_GRIP_COEF * d_grip_block

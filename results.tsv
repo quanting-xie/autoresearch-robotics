@@ -5,3 +5,4 @@ a2266b6	0.000000	-50.0	sign-convention bug; alpha collapsed harder, critic diver
 e81c811	0.000000	-50.0	dense reward fits well but alpha collapsed to 0; gripper just reaches	discard	dense training reward (alone, AUTO_ALPHA still on)
 767d033	0.100000	-45.0	训练干净但成功率持平基线;夹爪到位不抓 — 探索结构是瓶颈	discard	dense reward + 固定 alpha=0.2 组合
 923cc76	0.100000	-45.0	最终 eval 等基线但被早停杀于 15 min;warmup 数据被后续稀释	discard	gripper-close warmup + 5000 步(单独)
+13c27a2	0.000000	-50.0	三合一组合反而崩到 0;dense reward 在 episode 内无梯度是根因	discard	三合一组合(gripper-close warmup + 固定 alpha + dense reward)

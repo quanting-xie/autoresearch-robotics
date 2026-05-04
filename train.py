@@ -62,7 +62,7 @@ LR_CRITIC = 3e-4            # critic learning rate
 GAMMA = 0.98                # discount factor
 TAU = 0.005                 # soft target update rate
 INIT_ALPHA = 0.2            # initial entropy coefficient
-AUTO_ALPHA = False          # exp 7: pin alpha to keep exploration alive (decouple from reward magnitude)
+AUTO_ALPHA = True           # automatic entropy tuning
 LR_ALPHA = 3e-4             # alpha learning rate (if AUTO_ALPHA)
 
 # Replay buffer
@@ -75,11 +75,10 @@ HER_K = 4                   # future goals per transition
 HER_STRATEGY = "future"     # "future" or "final"
 
 # Training schedule
-STEPS_BEFORE_LEARNING = 5000    # exp 7: longer biased warmup to seed buffer with manipulation events
+STEPS_BEFORE_LEARNING = 1000    # random exploration steps before learning
 UPDATE_EVERY = 1                # gradient steps per env step
 N_UPDATES = 1                   # number of gradient updates per update cycle
 WARMUP_STEPS = 0                # steps with random actions after learning starts
-GRIPPER_CLOSE_DURING_WARMUP = True  # exp 7: force action[3]=-1 in warmup so cube actually moves
 
 # ---------------------------------------------------------------------------
 # Observation normalization
@@ -279,14 +278,9 @@ class ReplayBuffer:
             self._current_episode_start = self.ptr
 
     def _compute_reward(self, achieved_goal, desired_goal):
-        """Dense training reward: negative L2 distance to goal.
-
-        Eval still uses env's sparse reward (evaluate.py is read-only) — the
-        success_rate metric is unchanged. Dense form lets HER produce useful
-        gradient even when the cube barely moves.
-        """
+        """Sparse reward: -1 if not at goal, 0 if at goal (distance < 0.05)."""
         d = np.linalg.norm(achieved_goal - desired_goal, axis=-1)
-        return (-d).astype(np.float32)
+        return -(d > 0.05).astype(np.float32)
 
     def sample(self, batch_size, device, obs_normalizer=None,
                use_her=USE_HER, her_k=HER_K):
@@ -589,13 +583,9 @@ episode_reward = 0.0
 while True:
     t0 = time.time()
 
-    # Select action. During warmup, force the gripper dim closed so random
-    # arm motion + closed gripper produces real cube-bumping/pushing/grasping
-    # events that seed HER with non-trivial achieved-goal trajectories.
+    # Select action
     if total_steps < STEPS_BEFORE_LEARNING:
         action = env.action_space.sample()
-        if GRIPPER_CLOSE_DURING_WARMUP:
-            action[3] = -1.0  # closed gripper command (Fetch convention)
     else:
         action = agent.select_action(obs, deterministic=False)
 
@@ -609,16 +599,11 @@ while True:
     flat_obs_for_norm = flatten_obs(obs)
     obs_normalizer.update(flat_obs_for_norm)
 
-    # Dense training reward (eval reward is sparse via evaluate.py, unchanged)
-    shaped_reward = -float(np.linalg.norm(
-        next_obs["achieved_goal"] - obs["desired_goal"]
-    ))
-
     # Store transition
     buffer.add(
         obs=obs["observation"],
         action=action,
-        reward=shaped_reward,
+        reward=reward,
         next_obs=next_obs["observation"],
         done=float(done),
         achieved_goal=obs["achieved_goal"],

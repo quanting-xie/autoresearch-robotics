@@ -1,76 +1,89 @@
-实验 6 — 抓取偏置 warmup(夹爪闭合 + 5000 步)
-=================================================
-eval_success_rate: 0.10(等于基线 0.10)
-mean_reward: -45.0   |   mean_distance: 0.257(差于基线 0.214)
+实验 7 — 三合一组合(gripper-close warmup + 固定 alpha=0.2 + dense reward)
+==========================================================================
+eval_success_rate: 0.00(劣于基线 0.10)
+mean_reward: -50.0   |   mean_distance: 0.220
 training_seconds: 900(被早停 — 仅基线时间的一半)
-total_steps: 111,507(基线 279K,本实验只有 40%)
-total_updates: 106,507(基线 278K)
-spot_eval_history: [0.0, 0.0, 0.0]
-early_stop_reason: no-progress — 600s elapsed, last 3 spot-evals all 0
-
-判定:与基线持平,但训练时长只有一半 — 信息复杂,讨论后仍 discard。
+total_steps: 111,638(基线 279K)
+spot_eval_history: [0.00, 0.00, 0.00] — 三连零,触发 no-progress 早停
+status: discard
 
 帧分析
 ------
-- ep0_end:夹爪降到桌面左侧,方块在桌面右侧,目标(红球)在两者之间空中。
-  夹爪没靠近方块。reach 不如基线一致。
-- ep1_end:夹爪到达方块右侧;目标在方块左边的桌面上。reach 大致到位。
-- ep2_end:夹爪在桌面上;**注意:这一帧里看不到黑色方块** — 可能被夹爪
-  遮挡,也可能这一 episode 实际上挪动了方块到了视野外。10/10 个 episode
-  里有 1 个成功(success rate 0.10),不能完全排除是这一 episode。
+- ep0(目标在空中):夹爪居中下降到方块附近,在方块上方悬停。从 start→
+  mid→end,夹爪离方块越来越近但方块从不移动,从不被夹起。这是空中目标,
+  必须 pick + place 才能成功 — 完全失败。
+- ep1(目标在桌面,紧挨方块):应该是 reach-only 容易题(基线 10% 来自这种
+  episode)。但帧上看夹爪移动到方块右侧但偏高,不在方块顶上。reach 没到位,
+  导致连基线水平的 reach 都没学好。
+- ep2(目标在桌面,紧挨方块):同上,夹爪定位比 ep1 略好但仍偏离方块。
 
-早停意义讨论
+为什么 *组合* 比每个单变量都差
+-------------------------------
+对比:
+- 实验 5(dense + 固定 alpha,STEPS_BEFORE_LEARNING=1000)→ 0.10 ≈ 基线
+- 实验 6(gripper-close warmup,STEPS_BEFORE_LEARNING=5000,sparse + auto alpha)→ 0.10
+- 实验 7(三合一)→ 0.00,且被早停
+
+新发现的根本问题:**dense reward = -||achieved_goal - desired_goal|| 在 episode 内
+是常数,因为方块在 episode 内不移动。** achieved_goal 就是方块位置 — 方块不动,
+则一个 episode 内每一步的 reward 都是 -||cube_init - goal||,完全没梯度。
+
+这意味着:
+- 对 critic:整个 episode 的 Q 目标几乎相等(γ 折扣下也只是 r * (1-γ^T)/(1-γ)),
+  没有 state/action 区分能力
+- 对 actor:reward 与 action 解耦,policy 收不到任何"哪个动作更好"的信号
+- 跨 episode reward 当然有变化(初始 cube 位置和 goal 位置不同),但单 episode
+  没有动作依赖的梯度
+
+实验 5 的 0.10 来自基线 reach 行为的"幸存"。实验 6 同样。实验 7 把 warmup 加进来,
+后续 dense reward 训练阶段没有学到任何新东西,reach 行为本身也没被加强 — 因为
+reach 不会让 cube 移动,所以 dense reward 没有 reach gradient。
+
+为什么实验 7 比实验 5 更差(0.00 vs 0.10):
+- 5K 步 warmup 的 random action(且 gripper 强制闭合)给 buffer 喂了 5K 条
+  无效转移(action 随机,reward 平坦)。
+- 学习开始后 6K 步 deterministic policy 也只能在平坦 reward 下乱走。
+- 没有 reach gradient,policy 收敛到一个"高悬"或"侧偏"的低水平局部解,连
+  reach 都没学好 → 桌面 goal episode 也失败 → 总成功率为 0。
+
+实验 1-7 累积结论
+-----------------
+单杠杆失败 + 三合一仍失败,根本问题在 reward 信号的*结构*:
+- 稀疏 reward + HER:HER 重标注让所有未移动 cube 的 episode 看起来"成功"
+  (relabeled goal = future achieved_goal = cube 起点),但这教 policy 的是
+  "维持现状",非常弱的信号。基线 0.10 来自评估时 ~10% 的 goal 离 cube 起点
+  足够近的 episode(reach 即可)。
+- dense reward = -||cube - goal||:cube 不动 ⇒ 单 episode 内梯度为零。
+  跨 episode 的 reward 差异不能被 SAC 利用,因为 critic 学的是 Q(s,a),
+  不是平均 episode reward。
+
+要修复这个,**必须让 reward 在 episode 内对 action 有非零梯度**。最直接的
+方案是把 *gripper 位置* 也纳入 reward 的依赖,因为 gripper 位置在 action
+之下立即变化:
+
+  shaped_reward = -||cube - goal|| - λ * ||grip - cube||
+
+第二项给 policy 一个明确的 reach gradient,且 action 立即影响。第一项继续
+驱动 manipulation。组合后:
+- 即使 cube 不动,gripper 也学会贴近 cube(因为第二项)
+- 一旦 gripper 贴近 cube,随机扰动 + 闭合夹爪偶尔能撞动 cube → 第一项触发
+- HER 的 future relabeling 也仍然有效
+
+实验 8 计划
 -----------
-- 训练阶段的 spot-eval 用 5 个 episode,在最终 success_rate=0.10 的策略下,
-  P(0 个成功 / 5 episode) = 0.9^5 ≈ 0.59。
-- 三连续 0/5 的概率 = 0.59³ ≈ 20% — 也就是说基线水平的策略本来就有 1/5
-  概率被早停误杀。
-- 本实验确实是 baseline 水平(最终 10/10 eval 给出 0.10),但被早停判为
-  "no-progress" 提前结束。
-- 启示:早停的 5-episode 灵敏度对临界水平的策略友好度有限。要让早停判定
-  "看到了进步",我们需要让 spot-eval 在 ~10 分钟以内观察到 sr > 0.2。
-- evaluate.py 是只读的,我无法调早停。只能让下一实验真正快速突破到 0.2+
-  以上,避免假阴性。
+**多分量 dense reward**:在实验 7 基础上,把 reward 改成:
+  shaped = -||next_achieved_goal - desired_goal|| - 1.0 * ||next_grip - next_achieved_goal||
 
-训练曲线告诉我什么
-------------------
-- 0-5K 步:warmup 阶段。alpha=1.0 fixed,critic_loss=0,actor_loss=0(没学习)
-- 5K-6K:学习开始。alpha 1.0 -> 0.741(第一次更新)
-- 后续:alpha 仍按 auto 收敛,到 110K 步已经掉到 **0.002**(和实验 2 类似)
-- critic_loss 稳态 ~0.95(高于基线 0.15)
-- actor_loss +1.85(说明 Q 偏负,policy 表现差)
+其余保持实验 7 设置(固定 alpha=0.2,gripper-close warmup,但 STEPS_BEFORE_LEARNING
+回退到 1000 — 较少的 warmup,因为 warmup 的目的是"种 manipulation 数据",
+而新的 reward 已经能直接驱动 reach,warmup 不再那么关键)。
 
-为什么单独的"warmup 闭合夹爪"不够
----------------------------------
-- 5000 步 warmup ≈ 100 个 episode,夹爪一直闭合 + 手臂随机摇摆。理论上
-  应该撞到方块若干次,buffer 里应该有"方块被推走"的转移。
-- BUT:warmup 之后(> 5K 步),policy 接管,auto-alpha 还是按以前的方式
-  迅速崩塌到 0,policy 变 deterministic,新数据不再出现方块移动事件。
-- buffer 容量 200K,warmup 的 5K manipulation 候选数据相对于 200K 总容量
-  占 2.5% — 信号被淹没。
-- HER 重标注虽然能放大早期数据,但只要 critic 还是 sparse reward 训练 +
-  policy 早早变 deterministic,这些 manipulation 候选数据无法转化成可执行
-  的策略。
+预期:成功率 0.20-0.40。reach 立即可学,manipulation 经由 HER + 偶然 cube
+扰动逐步出现。
 
-实验 1-6 累计结论(强化版)
---------------------------
-基线 0.10 是 SAC+HER 在这个固定预算下的稳态。每条单独干预都无法突破:
-- 优化稳定性(LayerNorm)→ 反作用:0.0
-- alpha 调高(target_entropy)→ 符号搞错 + critic 发散:0.0
-- dense reward 单独 → alpha 崩到 0:0.0
-- dense reward + 固定 alpha → 训练干净但只 reach:0.10
-- 闭合夹爪 warmup + auto-alpha → 数据被冲掉,只 reach:0.10
+风险:λ 过大 → policy 收敛到"贴 cube 但不动"的局部解。先试 λ=1.0,若
+0.20 内崩到 0.00 用 λ=0.5 重试。
 
-要突破必须 *同时* 解决:
-1) **结构**:warmup 闭合夹爪,seed buffer 里的 manipulation 候选数据
-2) **数量**:固定 alpha=0.2,保持训练后期持续探索
-3) **信号**:dense reward,把 grip-cube + cube-goal 距离转化为可微信号
-
-下一实验:三合一组合
---------------------
-实验 7 = 实验 5 (dense + 固定 alpha) + 实验 6 (gripper-close warmup)。
-每个杠杆都已经单独测过且失败,但失败模式互补 — 组合应该有机会突破。
-
-风险 1:早停假阴性。需要在 10 分钟内 spot-eval 至少出现 0.2+。
-风险 2:三个变量同时变,如果失败不容易归因。但我们已经穷尽单变量,
-        组合是合理的下一步;若成功后续 ablate。
+把 STEPS_BEFORE_LEARNING 从 5000 回退到 1000 是为了让训练更早进入 dense reward
+驱动的阶段,避免 warmup 数据过多冲淡。也回退 GRIPPER_CLOSE_DURING_WARMUP 标志
+但不删除(以防之后想再开)。

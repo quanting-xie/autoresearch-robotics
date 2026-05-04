@@ -64,6 +64,7 @@ TAU = 0.005                 # soft target update rate
 INIT_ALPHA = 0.2            # initial entropy coefficient
 AUTO_ALPHA = True           # automatic entropy tuning
 LR_ALPHA = 3e-4             # alpha learning rate (if AUTO_ALPHA)
+MIN_ALPHA = 0.02            # keep sparse exploration from collapsing too early
 
 # Replay buffer
 BATCH_SIZE = 256            # minibatch size for updates
@@ -396,7 +397,7 @@ class SACAgent:
             self.target_entropy = -action_dim
             self.log_alpha = torch.zeros(1, requires_grad=True, device=device)
             self.alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=LR_ALPHA)
-            self.alpha = self.log_alpha.exp().item()
+            self.alpha = max(self.log_alpha.exp().item(), MIN_ALPHA)
         else:
             self.alpha = INIT_ALPHA
 
@@ -442,7 +443,7 @@ class SACAgent:
             self.alpha_optimizer.zero_grad()
             alpha_loss.backward()
             self.alpha_optimizer.step()
-            self.alpha = self.log_alpha.exp().item()
+            self.alpha = max(self.log_alpha.exp().item(), MIN_ALPHA)
             alpha_loss = alpha_loss.item()
 
         # Soft target update
@@ -539,6 +540,7 @@ if WANDB_ENABLED:
                 "tau": TAU,
                 "init_alpha": INIT_ALPHA,
                 "auto_alpha": AUTO_ALPHA,
+                "min_alpha": MIN_ALPHA,
                 "use_her": USE_HER,
                 "her_k": HER_K,
                 "her_strategy": HER_STRATEGY,

@@ -52,8 +52,8 @@ except ImportError:
 # replace with a completely different configuration scheme)
 
 # Policy architecture
-HIDDEN_DIM = 256            # hidden layer width
-N_LAYERS = 3                # number of hidden layers
+HIDDEN_DIM = 128            # hidden layer width (exp4: was 256; smaller net for faster grad steps)
+N_LAYERS = 2                # number of hidden layers (exp4: was 3)
 ACTIVATION = "relu"         # activation function: "relu", "tanh", "gelu"
 
 # SAC optimization
@@ -66,7 +66,7 @@ AUTO_ALPHA = True           # automatic entropy tuning
 LR_ALPHA = 3e-4             # alpha learning rate (if AUTO_ALPHA)
 
 # Replay buffer
-BATCH_SIZE = 256            # minibatch size for updates
+BATCH_SIZE = 128            # minibatch size for updates (exp4: was 256; halved for faster grad steps)
 BUFFER_SIZE = 200_000       # replay buffer capacity
 
 # HER (Hindsight Experience Replay)

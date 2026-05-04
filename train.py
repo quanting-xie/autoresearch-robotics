@@ -91,17 +91,12 @@ WARMUP_STEPS = 0                # steps with random actions after learning start
 #     the agent strictly prefers "block at goal stationary" over "block in
 #     motion". Solves the exp 6 "agent keeps the block moving instead of
 #     placing it" failure mode.
-#   - CONTACT_CLOSE_BONUS: small bonus for issuing a close command only when
-#     the gripper is already near the block. Targets the observed reach/hover
-#     failure without rewarding closed gripper motion far from the object.
 SHAPING_GRIP_COEF = 1.0
 SHAPING_GOAL_COEF = 5.0
 SHAPING_VEL_COEF = 100.0
 MAX_VEL_BONUS = 10.0
 AT_GOAL_BONUS = 20.0
 AT_GOAL_THRESHOLD = 0.05
-CONTACT_GRIP_RADIUS = 0.06
-CONTACT_CLOSE_BONUS = 1.0
 
 # ---------------------------------------------------------------------------
 # Observation normalization
@@ -302,8 +297,8 @@ class ReplayBuffer:
             self._current_episode_id += 1
             self._current_episode_start = self.ptr
 
-    def _compute_reward(self, next_observation, action, achieved_goal, next_achieved_goal, desired_goal):
-        """Training reward = sparse + grip-shape + goal-shape + vel/goal/contact bonuses.
+    def _compute_reward(self, next_observation, achieved_goal, next_achieved_goal, desired_goal):
+        """Training reward = sparse + grip-shape + goal-shape + vel-bonus + at-goal-bonus.
         See module-level shaping constants for rationale per term."""
         d_block_goal = np.linalg.norm(next_achieved_goal - desired_goal, axis=-1)
         sparse = -(d_block_goal > AT_GOAL_THRESHOLD).astype(np.float32)
@@ -312,15 +307,11 @@ class ReplayBuffer:
         block_delta = np.linalg.norm(next_achieved_goal - achieved_goal, axis=-1).astype(np.float32)
         vel_bonus = np.minimum(SHAPING_VEL_COEF * block_delta, MAX_VEL_BONUS).astype(np.float32)
         at_goal_bonus = (d_block_goal < AT_GOAL_THRESHOLD).astype(np.float32) * AT_GOAL_BONUS
-        near_contact = np.clip(1.0 - d_grip_block / CONTACT_GRIP_RADIUS, 0.0, 1.0).astype(np.float32)
-        close_cmd = np.maximum(-action[..., 3], 0.0).astype(np.float32)
-        close_bonus = CONTACT_CLOSE_BONUS * near_contact * close_cmd
         return (sparse
                 - SHAPING_GRIP_COEF * d_grip_block
                 - SHAPING_GOAL_COEF * d_block_goal.astype(np.float32)
                 + vel_bonus
-                + at_goal_bonus
-                + close_bonus)
+                + at_goal_bonus)
 
     def sample(self, batch_size, device, obs_normalizer=None,
                use_her=USE_HER, her_k=HER_K):
@@ -385,7 +376,7 @@ class ReplayBuffer:
                 ag = self.achieved_goals[idx]
                 next_ag = self.next_achieved_goals[idx]
                 next_obs_full = self.next_observations[idx]
-                rewards[i] = self._compute_reward(next_obs_full, actions[i], ag, next_ag, new_goal)
+                rewards[i] = self._compute_reward(next_obs_full, ag, next_ag, new_goal)
 
                 # Recompute done (success = distance < 0.05)
                 dones[i] = float(
@@ -640,14 +631,11 @@ while True:
     block_delta = float(np.linalg.norm(block_pos - block_pos_before))
     vel_bonus = min(SHAPING_VEL_COEF * block_delta, MAX_VEL_BONUS)
     at_goal_bonus = AT_GOAL_BONUS if d_block_goal < AT_GOAL_THRESHOLD else 0.0
-    near_contact = max(0.0, min(1.0, 1.0 - d_grip_block / CONTACT_GRIP_RADIUS))
-    close_bonus = CONTACT_CLOSE_BONUS * near_contact * max(-float(action[3]), 0.0)
     reward = (float(env_reward)
               - SHAPING_GRIP_COEF * d_grip_block
               - SHAPING_GOAL_COEF * d_block_goal
               + vel_bonus
-              + at_goal_bonus
-              + close_bonus)
+              + at_goal_bonus)
     episode_step += 1
     episode_reward += reward
 

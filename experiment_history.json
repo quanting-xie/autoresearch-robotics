@@ -1,7 +1,7 @@
 {
   "best_commit": "6b5cfd7",
   "best_success_rate": 0.2,
-  "total_experiments": 13,
+  "total_experiments": 14,
   "experiments": [
     {
       "id": 12,
@@ -75,16 +75,55 @@
       "status": "discard",
       "hypothesis_confirmed": false,
       "lesson_learned": "The velocity bonus remains useful for this fragile policy; damping it inside 10 cm regressed success to 0.0 and eliminated visible object movement."
+    },
+    {
+      "id": 14,
+      "commit": "82df6c2",
+      "timestamp": "2026-05-03T19:57:01",
+      "agent": "codex",
+      "description": "Kept exp10 transport rewards and added a small close-command bonus gated to within 6 cm of the block.",
+      "hypothesis": "Visual feedback showed reach/hover without contact. Rewarding negative gripper action only near the block should improve grasp/push contact without rewarding closed motion far away, recovering success to at least the 0.20 best.",
+      "changes_made": [
+        "Added CONTACT_GRIP_RADIUS=0.06 and CONTACT_CLOSE_BONUS=1.0.",
+        "Added close_bonus = CONTACT_CLOSE_BONUS * near_contact * max(-action[3], 0) to online reward.",
+        "Passed sampled actions into HER reward recomputation so relabeled rewards include the same close-command shaping."
+      ],
+      "metrics": {
+        "success_rate": 0.0,
+        "mean_reward": -50.0,
+        "mean_distance": 0.28336630487121034,
+        "total_steps": 73864,
+        "total_episodes": 1477,
+        "total_updates": 218592,
+        "peak_vram_mb": 28.97119140625
+      },
+      "vlm_feedback_summary": "gripper posture changes near the block, but contact is weak or misdirected and the block is not transported",
+      "vlm_failure_modes": [
+        "weak contact that does not move the block to the goal",
+        "gripper can drive down by the table edge after approaching",
+        "block remains stationary or minimally displaced",
+        "action-dependent close shaping adds local behavior without solving transport"
+      ],
+      "vlm_suggestions": [
+        "remove the contact-close bonus",
+        "restore exp10 reward shaping",
+        "isolate N_UPDATES=4 with AT_GOAL_BONUS=20 because exp12 confounded replay ratio with a weakened terminal bonus"
+      ],
+      "status": "discard",
+      "hypothesis_confirmed": false,
+      "lesson_learned": "A small near-block close-command bonus did not improve sparse success; the bottleneck is goal-directed transport after approach/contact, not just issuing the close action."
     }
   ],
   "insights": [
     "Existing results.tsv shows the best run is exp10 commit 6b5cfd7 with success_rate 0.20 using N_UPDATES=3.",
     "AT_GOAL_BONUS=20 appears load-bearing for sparse eval success; reducing it to 5 lowered success_rate to 0.10.",
-    "The block velocity bonus also appears load-bearing; damping it near the goal lowered success_rate to 0.0 and removed visible transport behavior."
+    "The block velocity bonus also appears load-bearing; damping it near the goal lowered success_rate to 0.0 and removed visible transport behavior.",
+    "Near-block close-command shaping did not improve success; contact acquisition alone is insufficient without better goal-directed transport."
   ],
   "failed_directions": [
     "AT_GOAL_BONUS 20 -> 5 while using N_UPDATES=4: regressed success_rate to 0.10 and produced approach/hover behavior rather than reliable transport.",
-    "Velocity bonus damping inside 10 cm of the goal: regressed success_rate to 0.0 and produced stationary-object rollouts."
+    "Velocity bonus damping inside 10 cm of the goal: regressed success_rate to 0.0 and produced stationary-object rollouts.",
+    "Close-command bonus gated within 6 cm of the block: regressed success_rate to 0.0 and caused weak or misdirected contact without transport."
   ],
   "promising_directions": [
     "Restore exp10 settings, then address jerkiness with a smoother local final-placement reward instead of lowering the flat at-goal bonus.",

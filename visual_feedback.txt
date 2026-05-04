@@ -45,3 +45,27 @@ Visible failure modes:
 
 Next suggestion:
 - Discard the velocity-damping change and restore exp10 reward shaping. The next experiment should preserve the full velocity bonus and instead improve contact acquisition earlier in the trajectory, for example by rewarding gripper closure only when the gripper is close to the block.
+
+Exp 14 visual analysis (commit 82df6c2)
+
+Quantitative result: eval_success_rate 0.000000, eval_mean_reward -50.000000, eval_mean_distance 0.283366. This failed to recover the exp10 best of 0.200000.
+
+Observed behavior:
+- Episode 0: the gripper descends close to the block and may make light contact, but the block is not moved to the goal.
+- Episode 1: the gripper moves toward the object side of the table, then ends down by the table edge instead of transporting the block.
+- Episode 2: the arm extends away from the block for much of the rollout; the block remains near its starting point and never reaches the goal.
+
+Comparison to previous best:
+- No renders_best directory is available for direct image comparison. Relative to results.tsv, the contact-close bonus did not preserve the exp10 success rate and only slightly improved mean distance over exp13.
+
+Hypothesis assessment:
+- The hypothesis that a small close-command bonus near the block would improve contact was not confirmed. It encouraged gripper posture changes near the object, but did not produce reliable pushing, lifting, or goal-directed transport.
+
+Visible failure modes:
+- Contact, when present, is weak and not aligned with the goal.
+- The policy can drive the gripper off the table edge after approaching.
+- The block remains stationary or only minimally displaced.
+- Action-dependent close shaping adds another local behavior without solving transport.
+
+Next suggestion:
+- Discard the contact-close bonus and restore exp10 reward shaping. The next clean test should isolate N_UPDATES=4 with AT_GOAL_BONUS=20, because exp12 confounded higher replay ratio with a weakened terminal bonus.

@@ -11,3 +11,4 @@ df5741c	0.100000	-45.0	BREAKTHROUGH: ep1 shows gripper grasping block at goal-do
 6b5cfd7	0.200000	-40.5	NEW BEST 2/10 successes; mean_distance 0.147 best yet; critic loss stabilized 230-260; more consistent block-approach	keep	N_UPDATES 2 -> 3 (RR=3)
 39f01ce	0.100000	-48.900002	gripper reaches near block but rarely moves it; only easy near-goal case likely succeeds	discard	N_UPDATES 4 with AT_GOAL_BONUS 5 after human feedback
 0f52eeb	0.000000	-50.000000	gripper reaches or hovers near block but object stays stationary; no sampled rollout succeeds	discard	damp velocity bonus inside 10cm of goal
+82df6c2	0.000000	-50.000000	gripper posture changes near block, but contact is weak/misdirected and block is not transported	discard	close-command bonus gated near block

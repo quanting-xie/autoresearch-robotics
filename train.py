@@ -75,10 +75,11 @@ HER_K = 4                   # future goals per transition
 HER_STRATEGY = "future"     # "future" or "final"
 
 # Training schedule
-STEPS_BEFORE_LEARNING = 1000    # random exploration steps before learning
+STEPS_BEFORE_LEARNING = 5000    # 5x baseline; longer biased warmup to seed buffer
 UPDATE_EVERY = 1                # gradient steps per env step
 N_UPDATES = 1                   # number of gradient updates per update cycle
 WARMUP_STEPS = 0                # steps with random actions after learning starts
+GRIPPER_CLOSE_DURING_WARMUP = True  # exp 6: force action[3]=-1 in warmup
 
 # ---------------------------------------------------------------------------
 # Observation normalization
@@ -583,9 +584,15 @@ episode_reward = 0.0
 while True:
     t0 = time.time()
 
-    # Select action
+    # Select action. During warmup, optionally force the gripper dim closed so
+    # that random arm motion plus a closed gripper produces actual cube-bumping
+    # / pushing / grasping events, seeding HER with non-trivial achieved-goal
+    # trajectories. This attacks the exp 1-5 finding that i.i.d. Gaussian noise
+    # in 4D never produces the multi-step grasp+lift sequence by itself.
     if total_steps < STEPS_BEFORE_LEARNING:
         action = env.action_space.sample()
+        if GRIPPER_CLOSE_DURING_WARMUP:
+            action[3] = -1.0  # closed gripper command (Fetch convention)
     else:
         action = agent.select_action(obs, deterministic=False)
 

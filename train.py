@@ -26,6 +26,7 @@ from prepare import (
 from evaluate import (
     EVAL_EPISODES, RENDER_EPISODES,
     evaluate, render_episodes,
+    run_spot_eval, should_stop_training,
 )
 
 # Optional wandb logging. Default mode is "online" — assumes you've run
@@ -76,31 +77,8 @@ HER_STRATEGY = "future"     # "future" or "final"
 # Training schedule
 STEPS_BEFORE_LEARNING = 1000    # random exploration steps before learning
 UPDATE_EVERY = 1                # gradient steps per env step
-N_UPDATES = 3                   # number of gradient updates per update cycle (RR=3; exp 10 best)
+N_UPDATES = 1                   # number of gradient updates per update cycle
 WARMUP_STEPS = 0                # steps with random actions after learning starts
-
-# Reward shaping (training-only; eval in evaluate.py uses unmodified env reward).
-# Four dense terms, each addressing a specific bottleneck found in exps 1-6:
-#   - SHAPING_GRIP_COEF: pulls gripper toward block (reach phase).
-#   - SHAPING_GOAL_COEF: pulls block toward goal (place gradient).
-#   - SHAPING_VEL_COEF (capped at MAX_VEL_BONUS): rewards block displacement
-#     between consecutive steps. Exp 6 showed this finally caused the
-#     gripper to engage the block (mean_reward escaped the -50 floor for
-#     the first time).
-#   - LOCAL_GOAL_BONUS: smooth bonus around the target that gives gradient for
-#     near-misses while preserving the hard AT_GOAL_BONUS success incentive.
-#   - AT_GOAL_BONUS: +20 when |block - goal| < 0.05. Twice MAX_VEL_BONUS so
-#     the agent strictly prefers "block at goal stationary" over "block in
-#     motion". Solves the exp 6 "agent keeps the block moving instead of
-#     placing it" failure mode.
-SHAPING_GRIP_COEF = 1.0
-SHAPING_GOAL_COEF = 5.0
-SHAPING_VEL_COEF = 100.0
-MAX_VEL_BONUS = 10.0
-LOCAL_GOAL_BONUS = 10.0
-LOCAL_GOAL_SIGMA = 0.10
-AT_GOAL_BONUS = 20.0
-AT_GOAL_THRESHOLD = 0.05
 
 # ---------------------------------------------------------------------------
 # Observation normalization
@@ -197,9 +175,7 @@ class Actor(nn.Module):
 
 
 class Critic(nn.Module):
-    """Twin Q-networks: (obs, action) -> (Q1, Q2). LayerNorm after each Linear
-    (except output head) — stabilises sparse-reward value learning per
-    arXiv 2312.05787."""
+    """Twin Q-networks: (obs, action) -> (Q1, Q2)."""
 
     def __init__(self, obs_dim, action_dim, hidden_dim=HIDDEN_DIM,
                  n_layers=N_LAYERS, activation=ACTIVATION):
@@ -208,16 +184,16 @@ class Critic(nn.Module):
         input_dim = obs_dim + action_dim
 
         # Q1
-        q1_layers = [nn.Linear(input_dim, hidden_dim), nn.LayerNorm(hidden_dim), act_cls()]
+        q1_layers = [nn.Linear(input_dim, hidden_dim), act_cls()]
         for _ in range(n_layers - 1):
-            q1_layers.extend([nn.Linear(hidden_dim, hidden_dim), nn.LayerNorm(hidden_dim), act_cls()])
+            q1_layers.extend([nn.Linear(hidden_dim, hidden_dim), act_cls()])
         q1_layers.append(nn.Linear(hidden_dim, 1))
         self.q1 = nn.Sequential(*q1_layers)
 
         # Q2
-        q2_layers = [nn.Linear(input_dim, hidden_dim), nn.LayerNorm(hidden_dim), act_cls()]
+        q2_layers = [nn.Linear(input_dim, hidden_dim), act_cls()]
         for _ in range(n_layers - 1):
-            q2_layers.extend([nn.Linear(hidden_dim, hidden_dim), nn.LayerNorm(hidden_dim), act_cls()])
+            q2_layers.extend([nn.Linear(hidden_dim, hidden_dim), act_cls()])
         q2_layers.append(nn.Linear(hidden_dim, 1))
         self.q2 = nn.Sequential(*q2_layers)
 
@@ -301,25 +277,10 @@ class ReplayBuffer:
             self._current_episode_id += 1
             self._current_episode_start = self.ptr
 
-    def _compute_reward(self, next_observation, achieved_goal, next_achieved_goal, desired_goal):
-        """Training reward = sparse + grip-shape + goal-shape + vel-bonus + at-goal-bonus.
-        See module-level shaping constants for rationale per term."""
-        d_block_goal = np.linalg.norm(next_achieved_goal - desired_goal, axis=-1)
-        sparse = -(d_block_goal > AT_GOAL_THRESHOLD).astype(np.float32)
-        grip_pos = next_observation[..., 0:3]
-        d_grip_block = np.linalg.norm(grip_pos - next_achieved_goal, axis=-1).astype(np.float32)
-        block_delta = np.linalg.norm(next_achieved_goal - achieved_goal, axis=-1).astype(np.float32)
-        vel_bonus = np.minimum(SHAPING_VEL_COEF * block_delta, MAX_VEL_BONUS).astype(np.float32)
-        local_goal_bonus = (
-            LOCAL_GOAL_BONUS * np.exp(-np.square(d_block_goal / LOCAL_GOAL_SIGMA))
-        ).astype(np.float32)
-        at_goal_bonus = (d_block_goal < AT_GOAL_THRESHOLD).astype(np.float32) * AT_GOAL_BONUS
-        return (sparse
-                - SHAPING_GRIP_COEF * d_grip_block
-                - SHAPING_GOAL_COEF * d_block_goal.astype(np.float32)
-                + vel_bonus
-                + local_goal_bonus
-                + at_goal_bonus)
+    def _compute_reward(self, achieved_goal, desired_goal):
+        """Sparse reward: -1 if not at goal, 0 if at goal (distance < 0.05)."""
+        d = np.linalg.norm(achieved_goal - desired_goal, axis=-1)
+        return -(d > 0.05).astype(np.float32)
 
     def sample(self, batch_size, device, obs_normalizer=None,
                use_her=USE_HER, her_k=HER_K):
@@ -380,11 +341,9 @@ class ReplayBuffer:
                 new_goal = self.achieved_goals[future_idx]
                 desired_goals[i] = new_goal
 
-                # Recompute reward with new goal (full shaping recipe)
-                ag = self.achieved_goals[idx]
+                # Recompute reward with new goal
                 next_ag = self.next_achieved_goals[idx]
-                next_obs_full = self.next_observations[idx]
-                rewards[i] = self._compute_reward(next_obs_full, ag, next_ag, new_goal)
+                rewards[i] = self._compute_reward(next_ag, new_goal)
 
                 # Recompute done (success = distance < 0.05)
                 dones[i] = float(
@@ -448,9 +407,6 @@ class SACAgent:
             flat = self.obs_normalizer.normalize(flat)
         return self.actor.get_action(flat, deterministic=deterministic)
 
-    # Lower bound on bootstrap value. Drop entropy term (still in actor loss).
-    Q_MIN = -200.0
-
     def update(self, batch):
         """Single SAC update step. Returns dict of losses."""
         obs, actions, rewards, next_obs, dones = batch
@@ -459,8 +415,7 @@ class SACAgent:
         with torch.no_grad():
             next_actions, next_log_probs = self.actor.sample(next_obs)
             q1_target, q2_target = self.critic_target(next_obs, next_actions)
-            q_target = torch.min(q1_target, q2_target)
-            q_target = torch.clamp(q_target, min=self.Q_MIN)
+            q_target = torch.min(q1_target, q2_target) - self.alpha * next_log_probs
             target_q = rewards + (1 - dones) * GAMMA * q_target
 
         q1, q2 = self.critic(obs, actions)
@@ -567,8 +522,8 @@ wandb_run = None
 if WANDB_ENABLED:
     try:
         wandb_run = wandb.init(
-            project=os.environ.get("WANDB_PROJECT", "autoresearch-pap"),
-            name=os.environ.get("WANDB_RUN_NAME"),  # None lets wandb auto-name
+            project=os.environ.get("WANDB_PROJECT", "autoresearch"),
+            name=os.environ.get("WANDB_RUN_NAME"),
             mode=_wandb_mode,
             config={
                 "env_id": ENV_ID,
@@ -613,6 +568,14 @@ total_updates = 0
 smooth_critic_loss = 0
 smooth_actor_loss = 0
 
+# Early-stop instrumentation. TIME_BUDGET is now a CEILING; the run ends
+# whenever should_stop_training() (in evaluate.py) returns True OR the
+# ceiling is hit, whichever comes first.
+SPOT_EVAL_INTERVAL_SECONDS = 300.0   # every 5 min wall-clock, run a 5-ep spot eval
+last_spot_eval_at = 0.0
+spot_eval_history: list[float] = []
+early_stop_reason = ""
+
 obs, info = env.reset()
 episode_step = 0
 episode_reward = 0.0
@@ -627,25 +590,8 @@ while True:
         action = agent.select_action(obs, deterministic=False)
 
     # Environment step
-    block_pos_before = obs["achieved_goal"].copy()
-    next_obs, env_reward, terminated, truncated, info = env.step(action)
+    next_obs, reward, terminated, truncated, info = env.step(action)
     done = terminated or truncated
-    # Training-only reward shaping. Eval (evaluate.py) is unmodified.
-    grip_pos = next_obs["observation"][0:3]
-    block_pos = next_obs["achieved_goal"]
-    goal_pos = next_obs["desired_goal"]
-    d_grip_block = float(np.linalg.norm(grip_pos - block_pos))
-    d_block_goal = float(np.linalg.norm(block_pos - goal_pos))
-    block_delta = float(np.linalg.norm(block_pos - block_pos_before))
-    vel_bonus = min(SHAPING_VEL_COEF * block_delta, MAX_VEL_BONUS)
-    local_goal_bonus = LOCAL_GOAL_BONUS * np.exp(-((d_block_goal / LOCAL_GOAL_SIGMA) ** 2))
-    at_goal_bonus = AT_GOAL_BONUS if d_block_goal < AT_GOAL_THRESHOLD else 0.0
-    reward = (float(env_reward)
-              - SHAPING_GRIP_COEF * d_grip_block
-              - SHAPING_GOAL_COEF * d_block_goal
-              + vel_bonus
-              + local_goal_bonus
-              + at_goal_bonus)
     episode_step += 1
     episode_reward += reward
 
@@ -728,8 +674,46 @@ while True:
         gc.collect()
         gc.disable()
 
-    # Time's up
+    # Early-stop checks (DO NOT REMOVE — caps wasted compute on bad runs).
+    # Cheap divergence check on every step (NaN/inf in latest losses).
+    stop, reason = should_stop_training(
+        spot_eval_history, total_training_time,
+        smooth_critic_loss, smooth_actor_loss,
+    )
+    if stop and "divergence" in reason:
+        early_stop_reason = reason
+        print(f"\n[early-stop] {reason}")
+        break
+
+    # Periodic spot-eval (~every 5 min wall-clock). Cheap (~5s) and gives
+    # the convergence/no-progress detector real signal to chew on.
+    if total_training_time - last_spot_eval_at >= SPOT_EVAL_INTERVAL_SECONDS:
+        last_spot_eval_at = total_training_time
+        # Build a deterministic policy fn from the current agent.
+        def _spot_policy_fn(obs_dict, _agent=agent):
+            return _agent.select_action(obs_dict, deterministic=True)
+        sr_spot = run_spot_eval(_spot_policy_fn, ENV_ID, n_episodes=5)
+        spot_eval_history.append(sr_spot)
+        print(f"\n[spot-eval] step {total_steps} | sr={sr_spot:.2f} | "
+              f"history={[f'{x:.2f}' for x in spot_eval_history[-5:]]}")
+        if WANDB_ENABLED:
+            wandb.log({
+                "spot_eval/success_rate": sr_spot,
+                "spot_eval/training_seconds": total_training_time,
+            }, step=total_steps)
+        # Now check non-divergence stop conditions.
+        stop, reason = should_stop_training(
+            spot_eval_history, total_training_time,
+            smooth_critic_loss, smooth_actor_loss,
+        )
+        if stop:
+            early_stop_reason = reason
+            print(f"\n[early-stop] {reason}")
+            break
+
+    # Time's up (ceiling)
     if total_training_time >= TIME_BUDGET:
+        early_stop_reason = "ceiling — TIME_BUDGET reached"
         break
 
 env.close()
@@ -869,6 +853,8 @@ print(f"total_episodes:    {total_episodes}")
 print(f"total_updates:     {total_updates}")
 print(f"num_params:        {num_params:,}")
 print(f"buffer_size:       {buffer.size:,}")
+print(f"early_stop_reason: {early_stop_reason or '(ran to ceiling)'}")
+print(f"spot_eval_history: {spot_eval_history}")
 
 if WANDB_ENABLED and wandb_run is not None:
     wandb.summary["eval/success_rate"] = float(metrics["success_rate"])
@@ -878,4 +864,6 @@ if WANDB_ENABLED and wandb_run is not None:
     wandb.summary["total_steps"] = total_steps
     wandb.summary["total_updates"] = total_updates
     wandb.summary["peak_vram_mb"] = peak_vram_mb
+    wandb.summary["early_stop_reason"] = early_stop_reason
+    wandb.summary["num_spot_evals"] = len(spot_eval_history)
     wandb.finish()

@@ -1,8 +1,9 @@
 commit	success_rate	mean_reward	vlm_summary	status	description
-9630464	0.000000	-50.0	robot ignores goal, arm collapses into table	keep	baseline SAC+HER (unmodified)
-a2c73ad	0.000000	-50.0	still no goal-tracking; arm collapses or retracts upward	discard	STEPS_BEFORE_LEARNING 1000->100 (only +4% updates; bottleneck was GPU per-update, not warmup)
-f7d61cf	0.000000	-50.0	visually identical to baseline; dense reward did not change policy	discard	dense reward shaping (-distance) in replay buffer (signal quality didn't beat too-few-updates)
-0fa95bd	0.000000	-50.0	new failure mode (arm extends past goal); still no goal-tracking	discard	smaller net 128x2 + batch 128 (only +9% updates; bottleneck is Python overhead, not GPU)
-309ddab	0.500000	-23.7	gripper lands precisely on goal across all 3 rendered episodes	keep	BREAKTHROUGH: AUTO_ALPHA=False + INIT_ALPHA=0.05 + dense reward (actor SNR fix)
-f307953	0.300000	-31.6	still goal-tracking but slightly less precise; small over/undershoot	discard	N_UPDATES 1->2 (UTD=2): +47% updates but actor over-commits to biased Q
-72eb4a3	0.600000	-23.2	one more episode tipped to hit; ep2 clean, ep0+ep1 just-misses	keep	LR_ACTOR 3e-4 -> 1e-3 (faster actor convergence within same ~1100 updates)
+9630464	0.000000	-50.0	机器人无视目标,机械臂塌陷砸桌面	keep	未修改的 SAC+HER 基线
+a2c73ad	0.000000	-50.0	仍然没有 goal-tracking;机械臂塌陷或向上回缩	discard	STEPS_BEFORE_LEARNING 1000->100(只 +4% 更新;瓶颈是单步成本而非 warmup)
+f7d61cf	0.000000	-50.0	视觉上与基线无差;dense reward 没改变 policy	discard	replay buffer 中 dense reward shaping(-distance);更新数太少,信号质量补不了
+0fa95bd	0.000000	-50.0	新失败模式(机械臂越过目标向外伸展);仍无 goal-tracking	discard	网络 128x2 + batch 128(仅 +9% 更新;瓶颈是 Python 开销而非 GPU)
+309ddab	0.500000	-23.7	夹爪在 3 个 render episode 都落在目标上	keep	突破:AUTO_ALPHA=False + INIT_ALPHA=0.05 + dense reward(修复 actor 信噪比)
+f307953	0.300000	-31.6	仍能 goal-tracking 但精度退化;小幅过冲/欠冲	discard	N_UPDATES 1->2(UTD=2):+47% 更新但 actor 过度拟合带偏差的 Q
+72eb4a3	0.600000	-23.2	多一集越过阈值;ep2 干净命中,ep0+ep1 临界擦边	keep	LR_ACTOR 3e-4 -> 1e-3(同样 ~1100 更新内 actor 收敛更快)
+c40d063	0.000000	-50.0	训练发散;mean_distance 0.092 接近基线;total_updates 也下降	discard	LR_CRITIC 3e-4 -> 1e-3(无稳定化手段下两侧 LR 同步上调发散)

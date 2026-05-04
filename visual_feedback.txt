@@ -1,34 +1,34 @@
-Experiment 7 — visual analysis (LR_ACTOR 3e-4 -> 1e-3, success_rate=0.60 NEW BEST)
+实验 8 视觉分析(LR_CRITIC 3e-4 -> 1e-3,success_rate=0.00,训练发散)
 
-Frames: ./renders/ep{0,1,2}_{start,mid,end}.png; comparison: ./renders_best/ (now updated to exp7).
+帧路径:./renders/ep{0,1,2}_{start,mid,end}.png;对比基准:./renders_best/(仍是 exp7 的最佳帧)。
 
-Quantitative:
-- success_rate 0.50 -> 0.60 (+0.10)
-- mean_reward -23.7 -> -23.2 (slight improvement)
-- mean_distance 0.046 -> 0.047 (essentially unchanged)
-- total_updates 1097 -> 1096 (same; LR change doesn't affect throughput)
+定量结果:
+- success_rate 0.60 -> 0.00(发散)
+- mean_reward -23.2 -> -50.0
+- mean_distance 0.047 -> 0.092(几乎回到基线 0.61 之外的早期实验水平)
+- total_updates 1096 -> 878(下降 ~20%,提示某些步骤花在了不健康的梯度更新上)
+- total_steps 2096 -> 1878
 
-Behavior:
-- ep0: gripper descends but hovers SLIGHTLY ABOVE the red goal dot (red visible just below gripper tip). Just-miss.
-- ep1: gripper ends near the table edge with the red dot visible just to its lower-front. Possibly a hit, possibly just-miss.
-- ep2: gripper PRECISELY on the goal (red dot at gripper tip on table top). Clean hit.
+定性观察(只读了关键帧、未做并排比较):
+- 机器人的动作不再呈现稳定的 goal-tracking。
+- 与 exp7 相比,policy 似乎回退到了类似前几个失败实验的“塌陷/默认姿态”行为。
+- mean_distance 0.092 比 exp1 baseline 的 0.61 好得多,但比 exp5/7 的 ~0.046 差很多 —— 介于“训练前期方向尚可但还没收敛”和“训练后期发散”之间。
 
-Comparison vs exp5 (the previous best):
-- Same overall reach behavior — policy is unchanged in character.
-- One episode tipped from miss to hit (5/10 -> 6/10).
-- mean_distance is virtually identical (0.046 -> 0.047), so precision didn't structurally improve. The +1 hit is likely due to a borderline case crossing the threshold.
+机理分析:
+- LR_CRITIC=1e-3 + 没有任何稳定化(LayerNorm、dropout、ensemble)直接导致 critic loss 在某次大梯度更新后 spike,Q 输出剧烈震荡,actor 跟随发散。
+- total_updates 下降也支持这一点:发散时 NaN/inf 的检测机制可能尚未触发(loss magnitude 还没破 1e6),但每步耗时变高(可能因为梯度变得更不规则,backward 更慢,或者 learning rate 让权重每步“更激进”)。
+- 这与 REDQ 论文里的观察一致:naive 加大 critic 学习强度需要 ensemble 来对抗 Q-overestimation;不然就会发散。
 
-Conclusion: LR_ACTOR=1e-3 gave a small real lift but the precision bottleneck remains. The critic Q-values near the goal boundary are still slightly imprecise — the actor is fast enough to find them but they themselves point in slightly-wrong directions for the last 1-2cm.
+决策:DISCARD exp8。把 LR_CRITIC 还原回 3e-4(保留 LR_ACTOR=1e-3,因为 exp7 已经被认定为 keep 的新最佳)。
 
-Next attack — match the critic LR to the actor LR:
-- LR_CRITIC 3e-4 -> 1e-3 (currently 3e-4, while actor is 1e-3 after exp7).
-- Faster Q convergence -> actor receives sharper target gradients near goal boundary.
-- Risk: critic instability. Mitigated by: twin Q networks, target net at tau=0.005, dense reward (so target is informative).
+下一步候选攻击(按风险/收益排序):
+1. n-step returns (n=3):用 3 步 horizon 的 reward sum + bootstrap,直接给 critic 一个更准确的 target。无需调 LR,改的是 target 计算方式,稳定性可控。直接攻击“Q 在目标边界处偏差”的根因。
+2. tau 0.005 -> 0.02:target 网络更新更快,actor 看到的 Q 更新鲜。极简改动,易于回滚。
+3. 在 critic 加 LayerNorm:稳定化结构性增强。可作为 LR_CRITIC 上调的安全前提。
+4. HER_K 4 -> 8:每个 batch 里 relabel 比例从 80% -> 88.9%,样本多样性提升。
 
-Predict: success_rate 0.6 -> 0.7-0.8. If the symmetric LR helps, exp 9 might bump tau too. If it diverges, fall back to LR_CRITIC=5e-4 in exp 9.
-
-Other levers in reserve (priority for later experiments):
-1. n-step returns (n=3): stronger value targets, directly attacks boundary bias.
-2. LayerNorm in critic trunk: stability boost, may enable safe retry of UTD>1.
-3. Tau bump 0.005 -> 0.02: faster target updates, may help precision.
-4. Increase HER_K from 4 to 8: more goal diversity in batch.
+exp 9 计划:n-step returns (n=3)。
+- 实现:在 buffer.sample() 中,从 idx 出发取连续 n 个 transitions(不跨 episode 边界),把 reward 折扣求和,target_q 用第 n 步的 next_obs。
+- 复杂度可控,不动 LR / 网络结构。
+- 预测:success_rate 0.6 -> 0.7-0.85。
+- 风险:实现 bug 会导致 reward 偏差;先小心写,跑一次就能看出来。

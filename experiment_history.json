@@ -1,15 +1,15 @@
 {
-  "best_commit": "9630464",
-  "best_success_rate": 0.5,
-  "total_experiments": 6,
+  "best_commit": "72eb4a3",
+  "best_success_rate": 0.6,
+  "total_experiments": 8,
   "experiments": [
     {
       "id": 1,
       "commit": "9630464",
       "timestamp": "2026-05-03T21:41:41",
       "agent": "opus-4.7",
-      "description": "未做修改的 SAC+HER 基线。256x3 MLP,batch 256,buffer 200k,HER k=4 future,STEPS_BEFORE_LEARNING=1000,UPDATE_EVERY=1,N_UPDATES=1。",
-      "hypothesis": "基线用于建立参考点。预期 success_rate 偏低,因为 10s 的预算叠加 STEPS_BEFORE_LEARNING=1000,留给 SAC 真正进行学习的梯度更新次数极少。",
+      "description": "\u672a\u505a\u4fee\u6539\u7684 SAC+HER \u57fa\u7ebf\u3002256x3 MLP,batch 256,buffer 200k,HER k=4 future,STEPS_BEFORE_LEARNING=1000,UPDATE_EVERY=1,N_UPDATES=1\u3002",
+      "hypothesis": "\u57fa\u7ebf\u7528\u4e8e\u5efa\u7acb\u53c2\u8003\u70b9\u3002\u9884\u671f success_rate \u504f\u4f4e,\u56e0\u4e3a 10s \u7684\u9884\u7b97\u53e0\u52a0 STEPS_BEFORE_LEARNING=1000,\u7559\u7ed9 SAC \u771f\u6b63\u8fdb\u884c\u5b66\u4e60\u7684\u68af\u5ea6\u66f4\u65b0\u6b21\u6570\u6781\u5c11\u3002",
       "changes_made": [],
       "metrics": {
         "success_rate": 0.0,
@@ -20,30 +20,30 @@
         "total_updates": 853,
         "peak_vram_mb": 27.15185546875
       },
-      "vlm_feedback_summary": "机器人完全无视目标;3 个 episode 中机械臂均向下塌陷砸向桌面。ep1 中夹爪起始位置实际上已落在目标的成功阈值之内,但确定性 policy 反而主动远离目标。policy 实质上未经训练。",
+      "vlm_feedback_summary": "\u673a\u5668\u4eba\u5b8c\u5168\u65e0\u89c6\u76ee\u6807;3 \u4e2a episode \u4e2d\u673a\u68b0\u81c2\u5747\u5411\u4e0b\u584c\u9677\u7838\u5411\u684c\u9762\u3002ep1 \u4e2d\u5939\u722a\u8d77\u59cb\u4f4d\u7f6e\u5b9e\u9645\u4e0a\u5df2\u843d\u5728\u76ee\u6807\u7684\u6210\u529f\u9608\u503c\u4e4b\u5185,\u4f46\u786e\u5b9a\u6027 policy \u53cd\u800c\u4e3b\u52a8\u8fdc\u79bb\u76ee\u6807\u3002policy \u5b9e\u8d28\u4e0a\u672a\u7ecf\u8bad\u7ec3\u3002",
       "vlm_failure_modes": [
-        "远离目标(无任何 goal-tracking 行为)",
-        "机械臂向下塌陷砸向桌面(policy 输出存在强烈向下偏置)",
-        "忽略 obs 中的 desired_goal 部分(不同目标下末端位姿相似)",
-        "未能利用有利的初始位置(ep1 起始即在目标处,policy 仍然离开)"
+        "\u8fdc\u79bb\u76ee\u6807(\u65e0\u4efb\u4f55 goal-tracking \u884c\u4e3a)",
+        "\u673a\u68b0\u81c2\u5411\u4e0b\u584c\u9677\u7838\u5411\u684c\u9762(policy \u8f93\u51fa\u5b58\u5728\u5f3a\u70c8\u5411\u4e0b\u504f\u7f6e)",
+        "\u5ffd\u7565 obs \u4e2d\u7684 desired_goal \u90e8\u5206(\u4e0d\u540c\u76ee\u6807\u4e0b\u672b\u7aef\u4f4d\u59ff\u76f8\u4f3c)",
+        "\u672a\u80fd\u5229\u7528\u6709\u5229\u7684\u521d\u59cb\u4f4d\u7f6e(ep1 \u8d77\u59cb\u5373\u5728\u76ee\u6807\u5904,policy \u4ecd\u7136\u79bb\u5f00)"
       ],
       "vlm_suggestions": [
-        "STEPS_BEFORE_LEARNING 1000 -> 100(单项杠杆最大的改动,可使可用梯度更新数量翻倍)",
-        "N_UPDATES 1 -> 4(REDQ 风格的 UTD,成倍放大有效梯度信号)",
-        "训练时使用 dense reward shaping(用 -distance 替代稀疏的 -1/0)以提供更强的梯度信号",
-        "更小的网络(128x2 或 64x2),因为 obs 仅 13 维"
+        "STEPS_BEFORE_LEARNING 1000 -> 100(\u5355\u9879\u6760\u6746\u6700\u5927\u7684\u6539\u52a8,\u53ef\u4f7f\u53ef\u7528\u68af\u5ea6\u66f4\u65b0\u6570\u91cf\u7ffb\u500d)",
+        "N_UPDATES 1 -> 4(REDQ \u98ce\u683c\u7684 UTD,\u6210\u500d\u653e\u5927\u6709\u6548\u68af\u5ea6\u4fe1\u53f7)",
+        "\u8bad\u7ec3\u65f6\u4f7f\u7528 dense reward shaping(\u7528 -distance \u66ff\u4ee3\u7a00\u758f\u7684 -1/0)\u4ee5\u63d0\u4f9b\u66f4\u5f3a\u7684\u68af\u5ea6\u4fe1\u53f7",
+        "\u66f4\u5c0f\u7684\u7f51\u7edc(128x2 \u6216 64x2),\u56e0\u4e3a obs \u4ec5 13 \u7ef4"
       ],
       "status": "keep",
       "hypothesis_confirmed": true,
-      "lesson_learned": "在 10s wall-clock 预算下,STEPS_BEFORE_LEARNING=1000 的随机预热阶段在任何梯度更新触发之前就消耗了约 54% 的总环境步数。SAC 总共只更新了 853 次,远不足以训练一个 410k 参数的网络,即便是在 FetchReach 上。这里的主导约束是梯度步数,而非环境经验。"
+      "lesson_learned": "\u5728 10s wall-clock \u9884\u7b97\u4e0b,STEPS_BEFORE_LEARNING=1000 \u7684\u968f\u673a\u9884\u70ed\u9636\u6bb5\u5728\u4efb\u4f55\u68af\u5ea6\u66f4\u65b0\u89e6\u53d1\u4e4b\u524d\u5c31\u6d88\u8017\u4e86\u7ea6 54% \u7684\u603b\u73af\u5883\u6b65\u6570\u3002SAC \u603b\u5171\u53ea\u66f4\u65b0\u4e86 853 \u6b21,\u8fdc\u4e0d\u8db3\u4ee5\u8bad\u7ec3\u4e00\u4e2a 410k \u53c2\u6570\u7684\u7f51\u7edc,\u5373\u4fbf\u662f\u5728 FetchReach \u4e0a\u3002\u8fd9\u91cc\u7684\u4e3b\u5bfc\u7ea6\u675f\u662f\u68af\u5ea6\u6b65\u6570,\u800c\u975e\u73af\u5883\u7ecf\u9a8c\u3002"
     },
     {
       "id": 2,
       "commit": "a2c73ad",
       "timestamp": "2026-05-03T21:44:00",
       "agent": "opus-4.7",
-      "description": "STEPS_BEFORE_LEARNING 1000 -> 100。单变量改动,用于检验更早开始学习能否在 10s 预算内提升梯度更新次数。",
-      "hypothesis": "把随机预学习预热从 1000 降到 100,在相同的 10s 预算内 total_updates 大致会翻倍(预计在约 1850 总步下达到约 1700),足以把 success_rate 推到 0.0 以上。",
+      "description": "STEPS_BEFORE_LEARNING 1000 -> 100\u3002\u5355\u53d8\u91cf\u6539\u52a8,\u7528\u4e8e\u68c0\u9a8c\u66f4\u65e9\u5f00\u59cb\u5b66\u4e60\u80fd\u5426\u5728 10s \u9884\u7b97\u5185\u63d0\u5347\u68af\u5ea6\u66f4\u65b0\u6b21\u6570\u3002",
+      "hypothesis": "\u628a\u968f\u673a\u9884\u5b66\u4e60\u9884\u70ed\u4ece 1000 \u964d\u5230 100,\u5728\u76f8\u540c\u7684 10s \u9884\u7b97\u5185 total_updates \u5927\u81f4\u4f1a\u7ffb\u500d(\u9884\u8ba1\u5728\u7ea6 1850 \u603b\u6b65\u4e0b\u8fbe\u5230\u7ea6 1700),\u8db3\u4ee5\u628a success_rate \u63a8\u5230 0.0 \u4ee5\u4e0a\u3002",
       "changes_made": [
         "STEPS_BEFORE_LEARNING: 1000 -> 100"
       ],
@@ -56,32 +56,32 @@
         "total_updates": 890,
         "peak_vram_mb": 27.15185546875
       },
-      "vlm_feedback_summary": "机器人仍然无视目标;看不到任何 goal-tracking 行为。ep2 出现了 exp1 中未见过的新失败模式(机械臂向上回缩),但 ep0/ep1 仍然塌陷到桌面。mean_distance 从 0.61 降到 0.40,但这是由随机末端位姿分布带来的,并非朝目标移动所致。",
+      "vlm_feedback_summary": "\u673a\u5668\u4eba\u4ecd\u7136\u65e0\u89c6\u76ee\u6807;\u770b\u4e0d\u5230\u4efb\u4f55 goal-tracking \u884c\u4e3a\u3002ep2 \u51fa\u73b0\u4e86 exp1 \u4e2d\u672a\u89c1\u8fc7\u7684\u65b0\u5931\u8d25\u6a21\u5f0f(\u673a\u68b0\u81c2\u5411\u4e0a\u56de\u7f29),\u4f46 ep0/ep1 \u4ecd\u7136\u584c\u9677\u5230\u684c\u9762\u3002mean_distance \u4ece 0.61 \u964d\u5230 0.40,\u4f46\u8fd9\u662f\u7531\u968f\u673a\u672b\u7aef\u4f4d\u59ff\u5206\u5e03\u5e26\u6765\u7684,\u5e76\u975e\u671d\u76ee\u6807\u79fb\u52a8\u6240\u81f4\u3002",
       "vlm_failure_modes": [
-        "仍然没有 goal-tracking",
-        "机械臂塌陷到桌面(ep0、ep1)",
-        "新失败模式:机械臂向上回缩成竖直姿态(ep2)",
-        "policy 在不同 episode 间方向不一致 —— 相似起始位置下默认姿态各不相同"
+        "\u4ecd\u7136\u6ca1\u6709 goal-tracking",
+        "\u673a\u68b0\u81c2\u584c\u9677\u5230\u684c\u9762(ep0\u3001ep1)",
+        "\u65b0\u5931\u8d25\u6a21\u5f0f:\u673a\u68b0\u81c2\u5411\u4e0a\u56de\u7f29\u6210\u7ad6\u76f4\u59ff\u6001(ep2)",
+        "policy \u5728\u4e0d\u540c episode \u95f4\u65b9\u5411\u4e0d\u4e00\u81f4 \u2014\u2014 \u76f8\u4f3c\u8d77\u59cb\u4f4d\u7f6e\u4e0b\u9ed8\u8ba4\u59ff\u6001\u5404\u4e0d\u76f8\u540c"
       ],
       "vlm_suggestions": [
-        "STEPS_BEFORE_LEARNING 改动对 total_updates 几乎中性;不要单独推进",
-        "下一个攻击方向:replay buffer 中的 dense reward shaping(用 -distance 替代稀疏奖励)",
-        "若 dense reward 能突破 0% 成功率,在 exp 4 上叠加 UTD>1(N_UPDATES=2-4)"
+        "STEPS_BEFORE_LEARNING \u6539\u52a8\u5bf9 total_updates \u51e0\u4e4e\u4e2d\u6027;\u4e0d\u8981\u5355\u72ec\u63a8\u8fdb",
+        "\u4e0b\u4e00\u4e2a\u653b\u51fb\u65b9\u5411:replay buffer \u4e2d\u7684 dense reward shaping(\u7528 -distance \u66ff\u4ee3\u7a00\u758f\u5956\u52b1)",
+        "\u82e5 dense reward \u80fd\u7a81\u7834 0% \u6210\u529f\u7387,\u5728 exp 4 \u4e0a\u53e0\u52a0 UTD>1(N_UPDATES=2-4)"
       ],
       "status": "discard",
       "hypothesis_confirmed": false,
-      "lesson_learned": "每次梯度更新的 GPU 吞吐才是绑定约束,而非环境步数。随机预学习 rollout 基本是零成本的(不采样、不算梯度),因此减少它们对 total_updates 几乎没有影响(853 -> 890,+4.3%)。total 环境步数反而下降(1853 -> 990),因为一旦开始学习,每一步都要支付 action sampling + 梯度更新的代价,把环境步速率拖到约 90 steps/sec。要在 10s 内拿到更多更新,要么加快梯度步(更小的网络/batch),要么提高每步的样本效率(dense reward、n-step returns、REDQ/DroQ)。"
+      "lesson_learned": "\u6bcf\u6b21\u68af\u5ea6\u66f4\u65b0\u7684 GPU \u541e\u5410\u624d\u662f\u7ed1\u5b9a\u7ea6\u675f,\u800c\u975e\u73af\u5883\u6b65\u6570\u3002\u968f\u673a\u9884\u5b66\u4e60 rollout \u57fa\u672c\u662f\u96f6\u6210\u672c\u7684(\u4e0d\u91c7\u6837\u3001\u4e0d\u7b97\u68af\u5ea6),\u56e0\u6b64\u51cf\u5c11\u5b83\u4eec\u5bf9 total_updates \u51e0\u4e4e\u6ca1\u6709\u5f71\u54cd(853 -> 890,+4.3%)\u3002total \u73af\u5883\u6b65\u6570\u53cd\u800c\u4e0b\u964d(1853 -> 990),\u56e0\u4e3a\u4e00\u65e6\u5f00\u59cb\u5b66\u4e60,\u6bcf\u4e00\u6b65\u90fd\u8981\u652f\u4ed8 action sampling + \u68af\u5ea6\u66f4\u65b0\u7684\u4ee3\u4ef7,\u628a\u73af\u5883\u6b65\u901f\u7387\u62d6\u5230\u7ea6 90 steps/sec\u3002\u8981\u5728 10s \u5185\u62ff\u5230\u66f4\u591a\u66f4\u65b0,\u8981\u4e48\u52a0\u5feb\u68af\u5ea6\u6b65(\u66f4\u5c0f\u7684\u7f51\u7edc/batch),\u8981\u4e48\u63d0\u9ad8\u6bcf\u6b65\u7684\u6837\u672c\u6548\u7387(dense reward\u3001n-step returns\u3001REDQ/DroQ)\u3002"
     },
     {
       "id": 3,
       "commit": "f7d61cf",
       "timestamp": "2026-05-03T21:47:48",
       "agent": "opus-4.7",
-      "description": "在 replay buffer 中引入 dense reward shaping:把每步稀疏的 {-1, 0} 奖励替换为 -L2 distance(next_achieved, post-HER desired)。评估奖励(env 定义)保持不变。",
-      "hypothesis": "dense reward 在每个 transition 上都给出非零梯度信号(而稀疏奖励仅在距离目标 5cm 之内才有信息)。预期会出现本轮首个非零的 success_rate。",
+      "description": "\u5728 replay buffer \u4e2d\u5f15\u5165 dense reward shaping:\u628a\u6bcf\u6b65\u7a00\u758f\u7684 {-1, 0} \u5956\u52b1\u66ff\u6362\u4e3a -L2 distance(next_achieved, post-HER desired)\u3002\u8bc4\u4f30\u5956\u52b1(env \u5b9a\u4e49)\u4fdd\u6301\u4e0d\u53d8\u3002",
+      "hypothesis": "dense reward \u5728\u6bcf\u4e2a transition \u4e0a\u90fd\u7ed9\u51fa\u975e\u96f6\u68af\u5ea6\u4fe1\u53f7(\u800c\u7a00\u758f\u5956\u52b1\u4ec5\u5728\u8ddd\u79bb\u76ee\u6807 5cm \u4e4b\u5185\u624d\u6709\u4fe1\u606f)\u3002\u9884\u671f\u4f1a\u51fa\u73b0\u672c\u8f6e\u9996\u4e2a\u975e\u96f6\u7684 success_rate\u3002",
       "changes_made": [
-        "_compute_reward: -1/0 稀疏 -> -||achieved - desired|| dense",
-        "sample(): 用基于 buffer next_achieved_goals + post-HER desired_goals 计算的 dense reward 覆盖原本存储的环境奖励(无论 HER 比例多少结果都一致)"
+        "_compute_reward: -1/0 \u7a00\u758f -> -||achieved - desired|| dense",
+        "sample(): \u7528\u57fa\u4e8e buffer next_achieved_goals + post-HER desired_goals \u8ba1\u7b97\u7684 dense reward \u8986\u76d6\u539f\u672c\u5b58\u50a8\u7684\u73af\u5883\u5956\u52b1(\u65e0\u8bba HER \u6bd4\u4f8b\u591a\u5c11\u7ed3\u679c\u90fd\u4e00\u81f4)"
       ],
       "metrics": {
         "success_rate": 0.0,
@@ -92,28 +92,28 @@
         "total_updates": 838,
         "peak_vram_mb": 27.15185546875
       },
-      "vlm_feedback_summary": "视觉表现与基线难以区分。3 个 episode 都呈现同样的“机械臂塌陷或回缩到默认姿态、无视目标”的失败模式。dense reward 改变了信号质量,但没有改变训练结果。",
+      "vlm_feedback_summary": "\u89c6\u89c9\u8868\u73b0\u4e0e\u57fa\u7ebf\u96be\u4ee5\u533a\u5206\u30023 \u4e2a episode \u90fd\u5448\u73b0\u540c\u6837\u7684\u201c\u673a\u68b0\u81c2\u584c\u9677\u6216\u56de\u7f29\u5230\u9ed8\u8ba4\u59ff\u6001\u3001\u65e0\u89c6\u76ee\u6807\u201d\u7684\u5931\u8d25\u6a21\u5f0f\u3002dense reward \u6539\u53d8\u4e86\u4fe1\u53f7\u8d28\u91cf,\u4f46\u6ca1\u6709\u6539\u53d8\u8bad\u7ec3\u7ed3\u679c\u3002",
       "vlm_failure_modes": [
-        "仍然没有 goal-tracking(与 exp1 相同)",
-        "无论目标在哪,机械臂都回缩到 LEFT/DOWN 默认姿态",
-        "确定性评估 policy 几乎对 obs 不敏感,输出近乎固定的动作"
+        "\u4ecd\u7136\u6ca1\u6709 goal-tracking(\u4e0e exp1 \u76f8\u540c)",
+        "\u65e0\u8bba\u76ee\u6807\u5728\u54ea,\u673a\u68b0\u81c2\u90fd\u56de\u7f29\u5230 LEFT/DOWN \u9ed8\u8ba4\u59ff\u6001",
+        "\u786e\u5b9a\u6027\u8bc4\u4f30 policy \u51e0\u4e4e\u5bf9 obs \u4e0d\u654f\u611f,\u8f93\u51fa\u8fd1\u4e4e\u56fa\u5b9a\u7684\u52a8\u4f5c"
       ],
       "vlm_suggestions": [
-        "根本原因:梯度更新太少(838),SAC 无法收敛。auto-alpha 起始为 exp(0)=1.0,因此训练早期 entropy 项主导 actor loss,与奖励信号质量无关。",
-        "修复方向:直接攻击更新吞吐。更小的网络(128x2)+ 更小的 batch(128)在 10s 内应能提供约 3-5 倍更新次数。",
-        "dense reward 方向上是合理的但单独不够 —— 保留为后续叠加项,等更小网络突破 0% 之后再用。"
+        "\u6839\u672c\u539f\u56e0:\u68af\u5ea6\u66f4\u65b0\u592a\u5c11(838),SAC \u65e0\u6cd5\u6536\u655b\u3002auto-alpha \u8d77\u59cb\u4e3a exp(0)=1.0,\u56e0\u6b64\u8bad\u7ec3\u65e9\u671f entropy \u9879\u4e3b\u5bfc actor loss,\u4e0e\u5956\u52b1\u4fe1\u53f7\u8d28\u91cf\u65e0\u5173\u3002",
+        "\u4fee\u590d\u65b9\u5411:\u76f4\u63a5\u653b\u51fb\u66f4\u65b0\u541e\u5410\u3002\u66f4\u5c0f\u7684\u7f51\u7edc(128x2)+ \u66f4\u5c0f\u7684 batch(128)\u5728 10s \u5185\u5e94\u80fd\u63d0\u4f9b\u7ea6 3-5 \u500d\u66f4\u65b0\u6b21\u6570\u3002",
+        "dense reward \u65b9\u5411\u4e0a\u662f\u5408\u7406\u7684\u4f46\u5355\u72ec\u4e0d\u591f \u2014\u2014 \u4fdd\u7559\u4e3a\u540e\u7eed\u53e0\u52a0\u9879,\u7b49\u66f4\u5c0f\u7f51\u7edc\u7a81\u7834 0% \u4e4b\u540e\u518d\u7528\u3002"
       ],
       "status": "discard",
       "hypothesis_confirmed": false,
-      "lesson_learned": "在梯度更新数量不足以让 SAC 收敛时,奖励信号质量于事无补。auto_alpha 从 alpha=1.0 起步,而 FetchReach 的 Q 值量级在 O(-10),前几千次更新中 actor_loss 里的 entropy 正则项会压过 Q 项。在 alpha 退火下来之前(其本身又需要更新次数),不论 Q-target 多干净,actor 都被推向随机动作。838 次更新的预算从根本上处于 pre-convergence 阶段。"
+      "lesson_learned": "\u5728\u68af\u5ea6\u66f4\u65b0\u6570\u91cf\u4e0d\u8db3\u4ee5\u8ba9 SAC \u6536\u655b\u65f6,\u5956\u52b1\u4fe1\u53f7\u8d28\u91cf\u4e8e\u4e8b\u65e0\u8865\u3002auto_alpha \u4ece alpha=1.0 \u8d77\u6b65,\u800c FetchReach \u7684 Q \u503c\u91cf\u7ea7\u5728 O(-10),\u524d\u51e0\u5343\u6b21\u66f4\u65b0\u4e2d actor_loss \u91cc\u7684 entropy \u6b63\u5219\u9879\u4f1a\u538b\u8fc7 Q \u9879\u3002\u5728 alpha \u9000\u706b\u4e0b\u6765\u4e4b\u524d(\u5176\u672c\u8eab\u53c8\u9700\u8981\u66f4\u65b0\u6b21\u6570),\u4e0d\u8bba Q-target \u591a\u5e72\u51c0,actor \u90fd\u88ab\u63a8\u5411\u968f\u673a\u52a8\u4f5c\u3002838 \u6b21\u66f4\u65b0\u7684\u9884\u7b97\u4ece\u6839\u672c\u4e0a\u5904\u4e8e pre-convergence \u9636\u6bb5\u3002"
     },
     {
       "id": 4,
       "commit": "0fa95bd",
       "timestamp": "2026-05-03T21:51:26",
       "agent": "opus-4.7",
-      "description": "把网络从 256x3 缩到 128x2(参数约减少 13 倍),并把 batch 从 256 减半到 128,以放大梯度步吞吐。",
-      "hypothesis": "前三次实验都是 0% 成功率,提示绑定约束是梯度步数。缩小 actor+critic 与 batch 应在 10s 内提供 3-5 倍更新次数,预期能突破 0% success_rate。",
+      "description": "\u628a\u7f51\u7edc\u4ece 256x3 \u7f29\u5230 128x2(\u53c2\u6570\u7ea6\u51cf\u5c11 13 \u500d),\u5e76\u628a batch \u4ece 256 \u51cf\u534a\u5230 128,\u4ee5\u653e\u5927\u68af\u5ea6\u6b65\u541e\u5410\u3002",
+      "hypothesis": "\u524d\u4e09\u6b21\u5b9e\u9a8c\u90fd\u662f 0% \u6210\u529f\u7387,\u63d0\u793a\u7ed1\u5b9a\u7ea6\u675f\u662f\u68af\u5ea6\u6b65\u6570\u3002\u7f29\u5c0f actor+critic \u4e0e batch \u5e94\u5728 10s \u5185\u63d0\u4f9b 3-5 \u500d\u66f4\u65b0\u6b21\u6570,\u9884\u671f\u80fd\u7a81\u7834 0% success_rate\u3002",
       "changes_made": [
         "HIDDEN_DIM: 256 -> 128",
         "N_LAYERS: 3 -> 2",
@@ -128,34 +128,34 @@
         "total_updates": 928,
         "peak_vram_mb": 18.76220703125
       },
-      "vlm_feedback_summary": "末端位姿模式有所不同(ep0 中机械臂现在向外伸展而不是向内塌陷),但仍然没有 goal-tracking。mean_distance 0.52(比 exp2/3 还差,处于噪声区间)。VRAM 从 27 降到 19 MB,确认网络确实变小,但 total_updates 仅从 853 升到 928(+9%),远低于预测的 3-5 倍。",
+      "vlm_feedback_summary": "\u672b\u7aef\u4f4d\u59ff\u6a21\u5f0f\u6709\u6240\u4e0d\u540c(ep0 \u4e2d\u673a\u68b0\u81c2\u73b0\u5728\u5411\u5916\u4f38\u5c55\u800c\u4e0d\u662f\u5411\u5185\u584c\u9677),\u4f46\u4ecd\u7136\u6ca1\u6709 goal-tracking\u3002mean_distance 0.52(\u6bd4 exp2/3 \u8fd8\u5dee,\u5904\u4e8e\u566a\u58f0\u533a\u95f4)\u3002VRAM \u4ece 27 \u964d\u5230 19 MB,\u786e\u8ba4\u7f51\u7edc\u786e\u5b9e\u53d8\u5c0f,\u4f46 total_updates \u4ec5\u4ece 853 \u5347\u5230 928(+9%),\u8fdc\u4f4e\u4e8e\u9884\u6d4b\u7684 3-5 \u500d\u3002",
       "vlm_failure_modes": [
-        "仍然没有 goal-tracking",
-        "ep0 出现新失败模式:机械臂越过目标向外伸展(超出基线静止位姿)",
-        "ep1、ep2 仍然戳向桌面中央"
+        "\u4ecd\u7136\u6ca1\u6709 goal-tracking",
+        "ep0 \u51fa\u73b0\u65b0\u5931\u8d25\u6a21\u5f0f:\u673a\u68b0\u81c2\u8d8a\u8fc7\u76ee\u6807\u5411\u5916\u4f38\u5c55(\u8d85\u51fa\u57fa\u7ebf\u9759\u6b62\u4f4d\u59ff)",
+        "ep1\u3001ep2 \u4ecd\u7136\u6233\u5411\u684c\u9762\u4e2d\u592e"
       ],
       "vlm_suggestions": [
-        "在当前设置下缩小架构是死胡同 —— 单次更新成本由 Python 开销主导,而非 GPU FLOPs。",
-        "无论网络大小,10s 内 total updates 似乎都被卡在约 900-950。",
-        "策略转向:让每次更新更有价值。用低固定 alpha + dense reward 攻击 actor 信噪比问题。",
-        "下一步攻击:AUTO_ALPHA=False + INIT_ALPHA=0.05 + dense reward shaping。"
+        "\u5728\u5f53\u524d\u8bbe\u7f6e\u4e0b\u7f29\u5c0f\u67b6\u6784\u662f\u6b7b\u80e1\u540c \u2014\u2014 \u5355\u6b21\u66f4\u65b0\u6210\u672c\u7531 Python \u5f00\u9500\u4e3b\u5bfc,\u800c\u975e GPU FLOPs\u3002",
+        "\u65e0\u8bba\u7f51\u7edc\u5927\u5c0f,10s \u5185 total updates \u4f3c\u4e4e\u90fd\u88ab\u5361\u5728\u7ea6 900-950\u3002",
+        "\u7b56\u7565\u8f6c\u5411:\u8ba9\u6bcf\u6b21\u66f4\u65b0\u66f4\u6709\u4ef7\u503c\u3002\u7528\u4f4e\u56fa\u5b9a alpha + dense reward \u653b\u51fb actor \u4fe1\u566a\u6bd4\u95ee\u9898\u3002",
+        "\u4e0b\u4e00\u6b65\u653b\u51fb:AUTO_ALPHA=False + INIT_ALPHA=0.05 + dense reward shaping\u3002"
       ],
       "status": "discard",
       "hypothesis_confirmed": false,
-      "lesson_learned": "在当前设置下,单次梯度步的主导成本并非 GPU FLOPs。把网络缩小 13 倍、batch 减半 2 倍,只换来 +9% 的每秒更新数。瓶颈在于每步循环中的 Python 开销:HER 在 buffer.sample() 中按样本的 Python for 循环、每步 action sampling 中 .cpu().numpy() 来回拷贝、buffer.add() 的 episode 跟踪。10s 内的 total 梯度更新数无论架构如何选择都大致被卡在约 900-950。要取得进展,应优化每次更新的“质量”,而非数量。"
+      "lesson_learned": "\u5728\u5f53\u524d\u8bbe\u7f6e\u4e0b,\u5355\u6b21\u68af\u5ea6\u6b65\u7684\u4e3b\u5bfc\u6210\u672c\u5e76\u975e GPU FLOPs\u3002\u628a\u7f51\u7edc\u7f29\u5c0f 13 \u500d\u3001batch \u51cf\u534a 2 \u500d,\u53ea\u6362\u6765 +9% \u7684\u6bcf\u79d2\u66f4\u65b0\u6570\u3002\u74f6\u9888\u5728\u4e8e\u6bcf\u6b65\u5faa\u73af\u4e2d\u7684 Python \u5f00\u9500:HER \u5728 buffer.sample() \u4e2d\u6309\u6837\u672c\u7684 Python for \u5faa\u73af\u3001\u6bcf\u6b65 action sampling \u4e2d .cpu().numpy() \u6765\u56de\u62f7\u8d1d\u3001buffer.add() \u7684 episode \u8ddf\u8e2a\u300210s \u5185\u7684 total \u68af\u5ea6\u66f4\u65b0\u6570\u65e0\u8bba\u67b6\u6784\u5982\u4f55\u9009\u62e9\u90fd\u5927\u81f4\u88ab\u5361\u5728\u7ea6 900-950\u3002\u8981\u53d6\u5f97\u8fdb\u5c55,\u5e94\u4f18\u5316\u6bcf\u6b21\u66f4\u65b0\u7684\u201c\u8d28\u91cf\u201d,\u800c\u975e\u6570\u91cf\u3002"
     },
     {
       "id": 5,
       "commit": "309ddab",
       "timestamp": "2026-05-03T21:54:38",
       "agent": "opus-4.7",
-      "description": "针对 actor 信噪比的组合改动:AUTO_ALPHA=False + INIT_ALPHA=0.05(低固定熵系数)+ replay buffer 中的 dense reward shaping(-||achieved - desired||)。",
-      "hypothesis": "四次 0% 实验提示 10s 预算把梯度更新数限制在约 900-1100,与架构无关。要让这些更新真正发挥作用,就要修复 actor 的信噪比:低固定 alpha(0.05)绕开 auto_alpha=1.0 导致的 entropy 主导 actor_loss 问题;dense reward 给 Q-target 一个干净的方向。两者缺一不可(早先实验中各自单独使用都得 0%)。预测:本轮首个非零 success_rate。",
+      "description": "\u9488\u5bf9 actor \u4fe1\u566a\u6bd4\u7684\u7ec4\u5408\u6539\u52a8:AUTO_ALPHA=False + INIT_ALPHA=0.05(\u4f4e\u56fa\u5b9a\u71b5\u7cfb\u6570)+ replay buffer \u4e2d\u7684 dense reward shaping(-||achieved - desired||)\u3002",
+      "hypothesis": "\u56db\u6b21 0% \u5b9e\u9a8c\u63d0\u793a 10s \u9884\u7b97\u628a\u68af\u5ea6\u66f4\u65b0\u6570\u9650\u5236\u5728\u7ea6 900-1100,\u4e0e\u67b6\u6784\u65e0\u5173\u3002\u8981\u8ba9\u8fd9\u4e9b\u66f4\u65b0\u771f\u6b63\u53d1\u6325\u4f5c\u7528,\u5c31\u8981\u4fee\u590d actor \u7684\u4fe1\u566a\u6bd4:\u4f4e\u56fa\u5b9a alpha(0.05)\u7ed5\u5f00 auto_alpha=1.0 \u5bfc\u81f4\u7684 entropy \u4e3b\u5bfc actor_loss \u95ee\u9898;dense reward \u7ed9 Q-target \u4e00\u4e2a\u5e72\u51c0\u7684\u65b9\u5411\u3002\u4e24\u8005\u7f3a\u4e00\u4e0d\u53ef(\u65e9\u5148\u5b9e\u9a8c\u4e2d\u5404\u81ea\u5355\u72ec\u4f7f\u7528\u90fd\u5f97 0%)\u3002\u9884\u6d4b:\u672c\u8f6e\u9996\u4e2a\u975e\u96f6 success_rate\u3002",
       "changes_made": [
         "AUTO_ALPHA: True -> False",
         "INIT_ALPHA: 0.2 -> 0.05",
-        "_compute_reward: 稀疏 {-1, 0} -> dense -L2 distance",
-        "sample(): 用基于 buffer next_achieved_goals + post-HER desired_goals 计算的 dense reward 覆盖原本存储的环境奖励"
+        "_compute_reward: \u7a00\u758f {-1, 0} -> dense -L2 distance",
+        "sample(): \u7528\u57fa\u4e8e buffer next_achieved_goals + post-HER desired_goals \u8ba1\u7b97\u7684 dense reward \u8986\u76d6\u539f\u672c\u5b58\u50a8\u7684\u73af\u5883\u5956\u52b1"
       ],
       "metrics": {
         "success_rate": 0.5,
@@ -166,28 +166,28 @@
         "total_updates": 1097,
         "peak_vram_mb": 27.14990234375
       },
-      "vlm_feedback_summary": "首次出现 GOAL-TRACKING 行为。3 个渲染的 episode 中,夹爪都精准下降并落在红色目标点上。mean_distance 0.046(比基线 0.61 好 13 倍),success_rate 0.50(5/10)。失败的样本都刚刚超过 5cm 阈值 —— policy 已抵达正确区域,只是没把最后几厘米的精细调整做到位。",
+      "vlm_feedback_summary": "\u9996\u6b21\u51fa\u73b0 GOAL-TRACKING \u884c\u4e3a\u30023 \u4e2a\u6e32\u67d3\u7684 episode \u4e2d,\u5939\u722a\u90fd\u7cbe\u51c6\u4e0b\u964d\u5e76\u843d\u5728\u7ea2\u8272\u76ee\u6807\u70b9\u4e0a\u3002mean_distance 0.046(\u6bd4\u57fa\u7ebf 0.61 \u597d 13 \u500d),success_rate 0.50(5/10)\u3002\u5931\u8d25\u7684\u6837\u672c\u90fd\u521a\u521a\u8d85\u8fc7 5cm \u9608\u503c \u2014\u2014 policy \u5df2\u62b5\u8fbe\u6b63\u786e\u533a\u57df,\u53ea\u662f\u6ca1\u628a\u6700\u540e\u51e0\u5398\u7c73\u7684\u7cbe\u7ec6\u8c03\u6574\u505a\u5230\u4f4d\u3002",
       "vlm_failure_modes": [
-        "5/10 episodes 刚刚超出 5cm 成功阈值 —— 缺少最后的精细调整精度",
-        "已无明显的系统性视觉失败"
+        "5/10 episodes \u521a\u521a\u8d85\u51fa 5cm \u6210\u529f\u9608\u503c \u2014\u2014 \u7f3a\u5c11\u6700\u540e\u7684\u7cbe\u7ec6\u8c03\u6574\u7cbe\u5ea6",
+        "\u5df2\u65e0\u660e\u663e\u7684\u7cfb\u7edf\u6027\u89c6\u89c9\u5931\u8d25"
       ],
       "vlm_suggestions": [
-        "N_UPDATES 1 -> 2(UTD=2):每个环境步多一次梯度步,用以打磨最后几厘米的精度",
-        "提高 LR_ACTOR:Q 信号已干净,更快的 actor LR 能在预算内更快收敛",
-        "n-step returns(n=3):在 dense reward 下提供更强的 value target",
-        "未来 ablation(在指标推得更高之后):增益来自低 alpha、dense reward 还是两者的组合?"
+        "N_UPDATES 1 -> 2(UTD=2):\u6bcf\u4e2a\u73af\u5883\u6b65\u591a\u4e00\u6b21\u68af\u5ea6\u6b65,\u7528\u4ee5\u6253\u78e8\u6700\u540e\u51e0\u5398\u7c73\u7684\u7cbe\u5ea6",
+        "\u63d0\u9ad8 LR_ACTOR:Q \u4fe1\u53f7\u5df2\u5e72\u51c0,\u66f4\u5feb\u7684 actor LR \u80fd\u5728\u9884\u7b97\u5185\u66f4\u5feb\u6536\u655b",
+        "n-step returns(n=3):\u5728 dense reward \u4e0b\u63d0\u4f9b\u66f4\u5f3a\u7684 value target",
+        "\u672a\u6765 ablation(\u5728\u6307\u6807\u63a8\u5f97\u66f4\u9ad8\u4e4b\u540e):\u589e\u76ca\u6765\u81ea\u4f4e alpha\u3001dense reward \u8fd8\u662f\u4e24\u8005\u7684\u7ec4\u5408?"
       ],
       "status": "keep",
       "hypothesis_confirmed": true,
-      "lesson_learned": "默认 SAC auto_alpha=True 加上 log_alpha=0 初始化,起始 alpha=exp(0)=1.0,会让前 1-2k 次更新中 actor_loss 的 entropy 正则项压过 Q 项。在 10s 预算下 total updates 上限约 1100,这是致命的。把 alpha 钉在低值(0.05)同时给 Q 一个 dense 的方向信号,可以让 actor 在约 1100 次更新内收敛到一个能 goal-tracking 的可用 policy。两个要素缺一不可(早先实验中各自单独使用都是 0% 成功率)。附带收益:total_updates 从 853 升到 1097(+29%),因为跳过了 alpha 的梯度步、且采样更低熵的动作让每次迭代更快。"
+      "lesson_learned": "\u9ed8\u8ba4 SAC auto_alpha=True \u52a0\u4e0a log_alpha=0 \u521d\u59cb\u5316,\u8d77\u59cb alpha=exp(0)=1.0,\u4f1a\u8ba9\u524d 1-2k \u6b21\u66f4\u65b0\u4e2d actor_loss \u7684 entropy \u6b63\u5219\u9879\u538b\u8fc7 Q \u9879\u3002\u5728 10s \u9884\u7b97\u4e0b total updates \u4e0a\u9650\u7ea6 1100,\u8fd9\u662f\u81f4\u547d\u7684\u3002\u628a alpha \u9489\u5728\u4f4e\u503c(0.05)\u540c\u65f6\u7ed9 Q \u4e00\u4e2a dense \u7684\u65b9\u5411\u4fe1\u53f7,\u53ef\u4ee5\u8ba9 actor \u5728\u7ea6 1100 \u6b21\u66f4\u65b0\u5185\u6536\u655b\u5230\u4e00\u4e2a\u80fd goal-tracking \u7684\u53ef\u7528 policy\u3002\u4e24\u4e2a\u8981\u7d20\u7f3a\u4e00\u4e0d\u53ef(\u65e9\u5148\u5b9e\u9a8c\u4e2d\u5404\u81ea\u5355\u72ec\u4f7f\u7528\u90fd\u662f 0% \u6210\u529f\u7387)\u3002\u9644\u5e26\u6536\u76ca:total_updates \u4ece 853 \u5347\u5230 1097(+29%),\u56e0\u4e3a\u8df3\u8fc7\u4e86 alpha \u7684\u68af\u5ea6\u6b65\u3001\u4e14\u91c7\u6837\u66f4\u4f4e\u71b5\u7684\u52a8\u4f5c\u8ba9\u6bcf\u6b21\u8fed\u4ee3\u66f4\u5feb\u3002"
     },
     {
       "id": 6,
       "commit": "f307953",
       "timestamp": "2026-05-03T21:58:01",
       "agent": "opus-4.7",
-      "description": "在 exp5 可用配置(低固定 alpha + dense reward)上提升 UTD:N_UPDATES 1 -> 2。",
-      "hypothesis": "exp5 命中 50%,mean_distance 0.046 —— 漏掉的样本刚好在 5cm 阈值之上。把每个环境步的梯度步数翻倍,应能让 actor 在 10s 预算内多做几轮精修,把 success_rate 推到 0.7+。",
+      "description": "\u5728 exp5 \u53ef\u7528\u914d\u7f6e(\u4f4e\u56fa\u5b9a alpha + dense reward)\u4e0a\u63d0\u5347 UTD:N_UPDATES 1 -> 2\u3002",
+      "hypothesis": "exp5 \u547d\u4e2d 50%,mean_distance 0.046 \u2014\u2014 \u6f0f\u6389\u7684\u6837\u672c\u521a\u597d\u5728 5cm \u9608\u503c\u4e4b\u4e0a\u3002\u628a\u6bcf\u4e2a\u73af\u5883\u6b65\u7684\u68af\u5ea6\u6b65\u6570\u7ffb\u500d,\u5e94\u80fd\u8ba9 actor \u5728 10s \u9884\u7b97\u5185\u591a\u505a\u51e0\u8f6e\u7cbe\u4fee,\u628a success_rate \u63a8\u5230 0.7+\u3002",
       "changes_made": [
         "N_UPDATES: 1 -> 2"
       ],
@@ -200,42 +200,110 @@
         "total_updates": 1616,
         "peak_vram_mb": 27.14990234375
       },
-      "vlm_feedback_summary": "policy 仍能 goal-tracking,但精度退化:夹爪在目标上方略微悬停(ep1)、轻微越过目标(ep2),只有 ep0 干净命中。mean_distance 0.057 刚好高于 5cm 阈值。UTD=2 把 total_updates 从 1097 推到 1616(+47%),但额外的更新让 actor 越过了在目标边界处略带偏置的 Q。",
+      "vlm_feedback_summary": "policy \u4ecd\u80fd goal-tracking,\u4f46\u7cbe\u5ea6\u9000\u5316:\u5939\u722a\u5728\u76ee\u6807\u4e0a\u65b9\u7565\u5fae\u60ac\u505c(ep1)\u3001\u8f7b\u5fae\u8d8a\u8fc7\u76ee\u6807(ep2),\u53ea\u6709 ep0 \u5e72\u51c0\u547d\u4e2d\u3002mean_distance 0.057 \u521a\u597d\u9ad8\u4e8e 5cm \u9608\u503c\u3002UTD=2 \u628a total_updates \u4ece 1097 \u63a8\u5230 1616(+47%),\u4f46\u989d\u5916\u7684\u66f4\u65b0\u8ba9 actor \u8d8a\u8fc7\u4e86\u5728\u76ee\u6807\u8fb9\u754c\u5904\u7565\u5e26\u504f\u7f6e\u7684 Q\u3002",
       "vlm_failure_modes": [
-        "目标附近的小幅过冲/欠冲",
-        "actor 过度迎合 Q 梯度,在成功边界附近表现出偏差"
+        "\u76ee\u6807\u9644\u8fd1\u7684\u5c0f\u5e45\u8fc7\u51b2/\u6b20\u51b2",
+        "actor \u8fc7\u5ea6\u8fce\u5408 Q \u68af\u5ea6,\u5728\u6210\u529f\u8fb9\u754c\u9644\u8fd1\u8868\u73b0\u51fa\u504f\u5dee"
       ],
       "vlm_suggestions": [
-        "丢弃 UTD=2;瓶颈已不再是“更新太少”,而是目标边界处的更新质量。",
-        "尝试 LR_ACTOR 3e-4 -> 1e-3:在约 1100 次更新内更快让 actor 收敛,且不引入 Q 偏置风险。",
-        "或使用 n-step returns(n=3)以获得更强的 value target。",
-        "或引入 REDQ 风格的 critic ensemble + dropout,以安全地重新启用 UTD>1。"
+        "\u4e22\u5f03 UTD=2;\u74f6\u9888\u5df2\u4e0d\u518d\u662f\u201c\u66f4\u65b0\u592a\u5c11\u201d,\u800c\u662f\u76ee\u6807\u8fb9\u754c\u5904\u7684\u66f4\u65b0\u8d28\u91cf\u3002",
+        "\u5c1d\u8bd5 LR_ACTOR 3e-4 -> 1e-3:\u5728\u7ea6 1100 \u6b21\u66f4\u65b0\u5185\u66f4\u5feb\u8ba9 actor \u6536\u655b,\u4e14\u4e0d\u5f15\u5165 Q \u504f\u7f6e\u98ce\u9669\u3002",
+        "\u6216\u4f7f\u7528 n-step returns(n=3)\u4ee5\u83b7\u5f97\u66f4\u5f3a\u7684 value target\u3002",
+        "\u6216\u5f15\u5165 REDQ \u98ce\u683c\u7684 critic ensemble + dropout,\u4ee5\u5b89\u5168\u5730\u91cd\u65b0\u542f\u7528 UTD>1\u3002"
       ],
       "status": "discard",
       "hypothesis_confirmed": false,
-      "lesson_learned": "在可用的 exp5 配置上,“每个环境步更多梯度更新”并非严格更优。UTD=2 把 total_updates 推高 47%,却把 success_rate 从 0.50 降到 0.30。在约 1100 次更新时 policy 已经收敛到 goal-tracking,额外更新会让 actor 过度拟合 Q 网络的偏置(没有 ensemble 就无法做偏置修正)。要突破 0.50,应攻击更新质量(更快的 actor LR、n-step returns、ensemble),而非数量。"
+      "lesson_learned": "\u5728\u53ef\u7528\u7684 exp5 \u914d\u7f6e\u4e0a,\u201c\u6bcf\u4e2a\u73af\u5883\u6b65\u66f4\u591a\u68af\u5ea6\u66f4\u65b0\u201d\u5e76\u975e\u4e25\u683c\u66f4\u4f18\u3002UTD=2 \u628a total_updates \u63a8\u9ad8 47%,\u5374\u628a success_rate \u4ece 0.50 \u964d\u5230 0.30\u3002\u5728\u7ea6 1100 \u6b21\u66f4\u65b0\u65f6 policy \u5df2\u7ecf\u6536\u655b\u5230 goal-tracking,\u989d\u5916\u66f4\u65b0\u4f1a\u8ba9 actor \u8fc7\u5ea6\u62df\u5408 Q \u7f51\u7edc\u7684\u504f\u7f6e(\u6ca1\u6709 ensemble \u5c31\u65e0\u6cd5\u505a\u504f\u7f6e\u4fee\u6b63)\u3002\u8981\u7a81\u7834 0.50,\u5e94\u653b\u51fb\u66f4\u65b0\u8d28\u91cf(\u66f4\u5feb\u7684 actor LR\u3001n-step returns\u3001ensemble),\u800c\u975e\u6570\u91cf\u3002"
+    },
+    {
+      "id": 7,
+      "commit": "72eb4a3",
+      "timestamp": "2026-05-03T22:00:52",
+      "agent": "opus-4.7",
+      "description": "在 exp5 的可用配置上单独把 LR_ACTOR 从 3e-4 提到 1e-3,在不增加梯度更新数量的前提下加速 actor 收敛,以打磨 goal-tracking 的最后几厘米精度。",
+      "hypothesis": "exp5 拿到 0.50 时 mean_distance 是 0.046,失败的 5 个 episode 都仅仅高于 5cm 阈值。exp6 的 UTD=2 反而把 success_rate 拉低到 0.30,说明 SAC 在没有 ensemble 的情况下吃不消高 UTD,Q-bias 会拖坏 actor。换条思路:把 actor LR 提高 3.3 倍,在同样约 1100 次更新内让 actor 权重多走一些,同时不会引入额外的 Q 偏差累计。预计 success_rate 0.6-0.8。",
+      "changes_made": [
+        "LR_ACTOR: 3e-4 -> 1e-3"
+      ],
+      "metrics": {
+        "success_rate": 0.6,
+        "mean_reward": -23.200000762939453,
+        "mean_distance": 0.04745277083159827,
+        "total_steps": 2096,
+        "total_episodes": 41,
+        "total_updates": 1096,
+        "peak_vram_mb": 27.14990234375
+      },
+      "vlm_feedback_summary": "小幅提升:6/10 命中(此前为 5/10)。3 个 render 的 episode 中,ep2 是干净命中(夹爪正落在红点上),ep0、ep1 仍是临界擦边(夹爪在目标上方/旁边略微悬停)。mean_distance 0.047 与 exp5 的 0.046 实际持平,精度并未结构性提升,只是有一个临界 episode 越过了阈值。",
+      "vlm_failure_modes": [
+        "仍有 4/10 episode 处于刚刚高于阈值的区间(那部分 mean_distance 估计在 0.05-0.07)",
+        "actor 没能微调下降的最后 1-2cm"
+      ],
+      "vlm_suggestions": [
+        "把 LR_CRITIC 也提到 1e-3:critic 收敛加快,actor 的目标梯度在边界处会更锐利",
+        "n-step returns (n=3):用更强的 value target 直接攻击边界精度问题",
+        "在 critic 加 LayerNorm:稳定性提升,可能让 UTD>1 的尝试变得安全",
+        "tau 从 0.005 提到 0.02:target 网络更新更快,有助于精度"
+      ],
+      "status": "keep",
+      "hypothesis_confirmed": true,
+      "lesson_learned": "在已经能 goal-tracking 的配置上把 actor LR 从 3e-4 提到 1e-3 带来真实但有限的提升:0.50 -> 0.60。total_updates 仍然是约 1100,且没有 Q-bias 累积。瓶颈已经从“actor 没收敛”转移到“actor 跟随的 Q 在目标边界处不够锐利”——要继续往上推,需要同时加速 critic 或者强化 value targets。"
+    },
+    {
+      "id": 8,
+      "commit": "c40d063",
+      "timestamp": "2026-05-03T22:02:33",
+      "agent": "opus-4.7",
+      "description": "在 exp7 的可用配置上对称把 LR_CRITIC 从 3e-4 提到 1e-3,与 actor LR 保持一致,以加快 Q 收敛、给 actor 更锐利的目标。",
+      "hypothesis": "exp7 把 LR_ACTOR 提到 1e-3 拿到 0.6,但 mean_distance 几乎没变。瓶颈现在转移到 Q 上:critic 仍在 3e-4,比 actor 慢 3.3 倍,actor 跑在一个还没学好的 Q 前面。把两边 LR 拉齐应能让 Q 同步收敛,让 actor 在目标边界附近跟随更准确的梯度。预计 success_rate 0.7-0.8。",
+      "changes_made": [
+        "LR_CRITIC: 3e-4 -> 1e-3"
+      ],
+      "metrics": {
+        "success_rate": 0.0,
+        "mean_reward": -50.0,
+        "mean_distance": 0.09185338125687767,
+        "total_steps": 1878,
+        "total_episodes": 37,
+        "total_updates": 878,
+        "peak_vram_mb": 27.14990234375
+      },
+      "vlm_feedback_summary": "完全发散。success_rate 从 0.6 跌到 0.0,mean_distance 0.092 已经接近基线水平,total_updates 也从 1096 降到 878——说明 critic loss 大概率出现 spike 让训练几乎崩塌。两边 LR 都拉到 1e-3 在没有任何稳定化手段(无 LayerNorm、无 dropout、tau 仍为 0.005)的情况下不安全。",
+      "vlm_failure_modes": [
+        "训练发散:critic loss 失控 -> Q 输出震荡 -> actor 跟着发散到不靠谱的策略",
+        "total_updates 反而下降(1096 -> 878),提示有些步骤花在了不健康的梯度更新上"
+      ],
+      "vlm_suggestions": [
+        "丢弃 LR_CRITIC=1e-3,先保留 LR_ACTOR=1e-3。critic LR 单独提需要稳定化手段陪伴。",
+        "下一步攻击:n-step returns (n=3) —— 不动 LR,但用更长 horizon 让 Q-target 更准确",
+        "或者 tau 0.005 -> 0.02:更频繁的 target 更新可能让 critic 在低 LR 下也跟得上 actor",
+        "若仍想推 critic LR,先在 critic 加 LayerNorm 再尝试"
+      ],
+      "status": "discard",
+      "hypothesis_confirmed": false,
+      "lesson_learned": "在没有任何稳定化手段(LayerNorm/dropout/critic ensemble)的 SAC 上,把 LR_CRITIC 提到 1e-3 会引发训练发散——success_rate 直接从 0.6 跌到 0.0,total_updates 也下降。critic 的 LR 与 actor LR 不能简单同步;critic 上调需要额外稳定化伴随。下一次再尝试推 critic 学习速度时,应配合 LayerNorm/tau 调整等结构性改动。"
     }
   ],
   "insights": [
-    "Gradient-step budget on a 10s wall-clock is ~850-1100 updates. Architectural shrinks (smaller net, smaller batch) only move it ±10% — Python overhead in the per-step loop dominates, not GPU FLOPs.",
-    "Total_steps is misleading — pre-learning random rollouts are free; learning steps cost ~10ms each. Don't optimize total_steps; optimize total_updates.",
-    "Default SAC auto_alpha=True with log_alpha=0 init starts at alpha=exp(0)=1.0, making the entropy term dominate the Q term in actor_loss for the first 1-2k updates. On a 10s/1100-update budget this is fatal — by the time alpha anneals, training is over. CONFIRMED FIX: pin alpha low (0.05, AUTO_ALPHA=False).",
-    "Reward signal quality (dense -L2 distance vs sparse -1/0) is necessary but NOT sufficient — exp3 showed dense alone with auto_alpha gets 0%. Pairs synergistically with low fixed alpha to give the actor a clean Q direction it actually follows.",
-    "Bonus from low fixed alpha: total_updates rises from ~850 to ~1100 (+29%), because skipping the alpha optimizer step + lower-variance action sampling shaves per-iteration cost."
+    "10s wall-clock \u9884\u7b97\u4e0b SAC \u7684\u68af\u5ea6\u66f4\u65b0\u6570\u7ea6\u4e3a 850-1100\u3002\u67b6\u6784\u7f29\u51cf(\u66f4\u5c0f\u7f51\u7edc\u3001\u66f4\u5c0f batch)\u53ea\u80fd\u8ba9\u6570\u5b57\u6d6e\u52a8 \u00b110% \u2014\u2014 \u4e3b\u5bfc\u6210\u672c\u662f\u6bcf\u6b65\u5faa\u73af\u91cc\u7684 Python \u5f00\u9500,\u800c\u4e0d\u662f GPU FLOPs\u3002",
+    "total_steps \u5bb9\u6613\u8bef\u5bfc:\u5b66\u4e60\u524d\u7684\u968f\u673a rollout \u51e0\u4e4e\u662f\u96f6\u6210\u672c,\u800c\u5b66\u4e60\u4e2d\u7684\u6bcf\u4e00\u6b65\u7ea6 10ms\u3002\u4e0d\u8981\u4f18\u5316 total_steps,\u8981\u4f18\u5316 total_updates\u3002",
+    "\u9ed8\u8ba4 SAC \u7684 auto_alpha=True\u3001log_alpha \u521d\u59cb\u4e3a 0,\u7b49\u4ef7\u4e8e alpha=exp(0)=1.0,\u5728\u524d 1-2k \u6b21\u66f4\u65b0\u91cc entropy \u9879\u4f1a\u538b\u8fc7 actor_loss \u4e2d\u7684 Q \u9879\u3002\u5728 10s/1100 \u66f4\u65b0\u7684\u9884\u7b97\u4e0b\u8fd9\u662f\u81f4\u547d\u7684\u2014\u2014\u7b49 alpha \u9000\u706b\u5b8c\u8bad\u7ec3\u5df2\u7ecf\u7ed3\u675f\u3002\u5df2\u786e\u8ba4\u6709\u6548\u7684\u4fee\u590d:\u56fa\u5b9a\u4f4e alpha(0.05,AUTO_ALPHA=False)\u3002",
+    "\u5956\u52b1\u4fe1\u53f7\u8d28\u91cf(dense -L2 distance vs \u7a00\u758f -1/0)\u662f\u5fc5\u8981\u4f46\u4e0d\u5145\u5206\u6761\u4ef6\u2014\u2014exp3 \u5355\u72ec\u7528 dense \u4ecd\u7136 0%\u3002\u5b83\u5fc5\u987b\u548c\u4f4e\u56fa\u5b9a alpha \u4e00\u8d77,\u624d\u80fd\u7ed9 actor \u4e00\u4e2a\u5b83\u771f\u7684\u4f1a\u53bb\u8ddf\u968f\u7684\u5e72\u51c0 Q \u65b9\u5411\u3002",
+    "\u4f4e\u56fa\u5b9a alpha \u7684\u526f\u4f5c\u7528\u7ea2\u5229:total_updates \u4ece\u7ea6 850 \u5347\u5230\u7ea6 1100(+29%)\u2014\u2014\u7701\u6389 alpha \u4f18\u5316\u6b65\u3001\u518d\u52a0\u4e0a\u65b9\u5dee\u66f4\u5c0f\u7684 action sampling,\u6bcf\u4e2a iteration \u90fd\u66f4\u8f7b\u3002",
+    "\u5728\u6ca1\u6709\u7a33\u5b9a\u5316\u624b\u6bb5(LayerNorm/dropout/critic ensemble)\u7684 SAC \u4e0a,LR_CRITIC \u4e0d\u80fd\u7b80\u5355\u8ddf\u968f LR_ACTOR \u4e0a\u8c03\u5230 1e-3\u2014\u2014\u4f1a\u53d1\u6563(exp8 \u9a8c\u8bc1)\u3002critic \u7684\u8bad\u7ec3\u5f3a\u5ea6\u4e0a\u8c03\u5fc5\u987b\u642d\u914d\u7ed3\u6784\u6027\u7a33\u5b9a\u5316\u3002"
   ],
   "failed_directions": [
-    "STEPS_BEFORE_LEARNING 1000 -> 100 alone (exp2): only +4% updates, 0% success_rate. The lever was wrong; not the warmup but the per-update cost.",
-    "Dense reward shaping alone (exp3): 0% success_rate; behavior visually unchanged. Reward signal quality cannot compensate for too-few gradient updates. Auto-alpha at init=1.0 means entropy term dominates actor loss until alpha anneals — and that itself takes more updates than 838.",
-    "Smaller net (128x2) + smaller batch (128) (exp4): only +9% updates, 0% success_rate. GPU FLOPs are not the bottleneck; Python overhead in per-step loop is. Architectural shrinking is a dead end here."
+    "STEPS_BEFORE_LEARNING 1000 -> 100(exp2 \u5355\u72ec\u4f7f\u7528):\u4ec5 +4% \u66f4\u65b0,success_rate \u4ecd\u4e3a 0\u3002\u6539\u7684\u4e0d\u662f\u771f\u6b63\u7684\u6760\u6746\u2014\u2014\u74f6\u9888\u662f\u5355\u6b65\u6210\u672c\u800c\u4e0d\u662f warmup\u3002",
+    "dense reward shaping \u5355\u72ec\u4f7f\u7528(exp3):0% \u6210\u529f\u7387,\u89c6\u89c9\u4e0a\u6ca1\u53d8\u5316\u3002\u5728\u68af\u5ea6\u66f4\u65b0\u6570\u592a\u5c11\u65f6,\u4fe1\u53f7\u8d28\u91cf\u8865\u4e0d\u4e86\u91cf\u3002auto_alpha=1.0 \u8ba9 entropy \u4e3b\u5bfc actor loss,\u76f4\u5230 alpha \u9000\u706b,\u800c\u8fd9\u672c\u8eab\u6bd4 838 \u6b21\u66f4\u65b0\u66f4\u8017\u65f6\u3002",
+    "\u66f4\u5c0f\u7f51\u7edc (128x2) + \u66f4\u5c0f batch (128)(exp4):\u4ec5 +9% \u66f4\u65b0,0% \u6210\u529f\u7387\u3002GPU FLOPs \u4e0d\u662f\u74f6\u9888,\u6bcf\u6b65\u5faa\u73af\u91cc\u7684 Python \u5f00\u9500\u624d\u662f\u3002\u5728\u5f53\u524d\u5b9e\u73b0\u4e0b\u67b6\u6784\u7f29\u51cf\u662f\u6b7b\u80e1\u540c\u3002",
+    "UTD=2(exp6 \u5728 exp5 \u53ef\u7528\u914d\u7f6e\u4e0a):0.50 -> 0.30\u3002\u66f4\u591a\u66f4\u65b0\u8ba9 actor \u8fc7\u5ea6\u62df\u5408 Q \u7f51\u7edc\u5728\u76ee\u6807\u8fb9\u754c\u5904\u7684\u504f\u5dee,\u6ca1\u6709 ensemble \u65f6\u65e0\u6cd5\u4fee\u6b63\u3002",
+    "LR_CRITIC 3e-4 -> 1e-3 \u5355\u72ec\u4f7f\u7528(exp8 \u5728 exp7 \u53ef\u7528\u914d\u7f6e\u4e0a):0.60 -> 0.00,\u8bad\u7ec3\u53d1\u6563\u3002critic LR \u4e0a\u8c03\u9700\u8981\u7a33\u5b9a\u5316\u4f34\u968f\u3002"
   ],
   "promising_directions": [
-    "LR_ACTOR 3e-4 -> 1e-3: faster actor convergence within the existing ~1100 updates; should refine precision without UTD's Q-bias issue.",
-    "n-step returns (n=3): stronger value targets to reduce Q boundary bias near the success threshold.",
-    "LayerNorm or dropout in critic: combined with retry of UTD=2, gives DroQ-style stability for safe extra updates.",
-    "Higher tau (0.005 -> 0.02): faster target net convergence, may help precision.",
-    "Ablate exp 5: low alpha alone (vs exp3's dense alone failing) to see if the dense reward is essential."
-  ],
-  "failed_directions_continued": [
-    "UTD=2 (N_UPDATES 1->2) on exp5 config (exp6): 0.50 -> 0.30. More updates over-commit actor to biased Q at the goal boundary."
+    "n-step returns (n=3):\u7528\u66f4\u957f horizon \u7684 value target,\u76f4\u63a5\u51cf\u5c0f Q \u5728\u76ee\u6807\u8fb9\u754c\u9644\u8fd1\u7684\u504f\u5dee,\u7406\u8bba\u4e0a\u6bd4 LR \u8c03\u6574\u66f4\u6cbb\u672c\u3002",
+    "\u5728 critic \u52a0 LayerNorm:\u65e2\u80fd\u5728\u4e0d\u53d1\u6563\u524d\u63d0\u4e0b\u91cd\u65b0\u5c1d\u8bd5 LR_CRITIC \u4e0a\u8c03,\u4e5f\u53ef\u80fd\u8ba9 UTD>1 \u53d8\u5f97\u5b89\u5168\u3002",
+    "tau \u4ece 0.005 \u63d0\u5230 0.02:target \u7f51\u7edc\u66f4\u65b0\u66f4\u5feb,\u53ef\u80fd\u5728\u4e0d\u52a8\u4e3b LR \u7684\u524d\u63d0\u4e0b\u8ba9 actor \u770b\u5230\u66f4\u65b0\u9c9c\u7684 Q\u3002",
+    "HER_K \u4ece 4 \u63d0\u5230 8:\u6bcf\u4e2a batch \u91cc relabel \u7684\u76ee\u6807\u66f4\u591a,\u6837\u672c\u591a\u6837\u6027\u66f4\u9ad8\u3002",
+    "\u9488\u5bf9 exp5 \u7684\u6d88\u878d:\u5355\u72ec\u4f4e alpha \u662f\u5426\u5c31\u591f\u4e86(\u5bf9\u6bd4 exp3 dense \u5355\u72ec\u5931\u8d25),\u4ece\u800c\u5224\u65ad dense reward \u662f\u5426\u771f\u7684\u4e0d\u53ef\u6216\u7f3a\u3002"
   ]
 }

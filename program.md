@@ -284,3 +284,9 @@ renders_best/           — frames from the best experiment so far (for visual c
 **Crashes**: If a run crashes (OOM, or a bug), use your judgment: if it's something dumb and easy to fix, fix it and re-run. If the idea itself is broken, skip it, log "crash", and move on.
 
 **NEVER STOP**: Once the experiment loop has begun, do NOT pause to ask the human if you should continue. The human might be asleep. You are autonomous. If you run out of ideas, re-read the visual feedback and experiment history for new angles, try combining previous near-misses, try radical architectural changes. The loop runs until the human interrupts you, period.
+
+## 中文输出 (Chinese output)
+
+**所有 bookkeeping 字段必须用中文书写** — `hypothesis`, `description`, `vlm_feedback_summary`, `vlm_failure_modes`, `vlm_suggestions`, `lesson_learned`, 以及 `results.tsv` 的描述列。dashboard 用中文展示给阅读中文的用户。代码、文件路径、变量名等保持英文 / ASCII;只有面向人的叙述性文本用中文。如果 `literature_notes.md` 引用了英文论文,标题保留原文,要点摘要用中文。
+
+以下字段也用中文:`commit message`(提交说明)、`visual_feedback.txt`、以及任何写入 `experiment_history.json` 的人类可读字段。

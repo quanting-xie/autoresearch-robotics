@@ -75,7 +75,7 @@ HER_K = 4                   # future goals per transition
 HER_STRATEGY = "future"     # "future" or "final"
 
 # Training schedule
-STEPS_BEFORE_LEARNING = 100     # random exploration steps before learning (exp2: was 1000; on a 10s budget this stole ~half the gradient updates)
+STEPS_BEFORE_LEARNING = 1000    # random exploration steps before learning
 UPDATE_EVERY = 1                # gradient steps per env step
 N_UPDATES = 1                   # number of gradient updates per update cycle
 WARMUP_STEPS = 0                # steps with random actions after learning starts

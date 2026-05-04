@@ -1,25 +1,32 @@
-Experiment 1 — visual analysis (baseline SAC+HER, success_rate=0.00)
+Experiment 2 — visual analysis (STEPS_BEFORE_LEARNING 1000 -> 100, success_rate=0.00)
 
-Frames analyzed: ./renders/ep{0,1,2}_{start,mid,end}.png
+Frames: ./renders/ep{0,1,2}_{start,mid,end}.png
 
-What the robot is doing:
-- ep0: Gripper starts ~10cm from the red goal. By mid the arm has retracted upward and rotated; by end the arm has fully collapsed downward and to the side, gripper poking near table edge. Net: moves AWAY from goal.
-- ep1: Gripper tip starts almost AT the goal (within or near the 5cm success threshold!). By mid the arm has retracted, by end the gripper is poking into the table top. Net: actively walks AWAY from a near-success start.
-- ep2: Same default starting pose, gripper ~10cm from goal. Arm rotates/bends and pushes gripper down to the table. Goal floats untouched.
+Behavior:
+- ep0: gripper starts above and to the right (~10cm from goal floating to its left). Mid: arm has rotated downward and the gripper is poking at the table top, bypassing the goal entirely. End: same — frozen poking at the table.
+- ep1: same default starting pose; ends with gripper poking near the table edge, goal floating to its left.
+- ep2: a clearly DIFFERENT failure mode from exp 1 — arm has retracted way up and to the left into a tall vertical posture, gripper points down at the column. Goal floats far below to the right.
 
-Failure modes (visible across all 3 episodes):
-- "Walks away from goal" — when the goal is to the right of the gripper, the policy moves the arm DOWN/LEFT instead of right.
-- "Arm collapses into table" — strong downward bias in the policy output. The gripper ends up touching/poking the table top.
-- "No goal-tracking behavior" — the policy ignores the desired_goal portion of the observation. End poses are similar across episodes despite goals being in different positions.
-- "Failed to exploit favorable starts" — in ep1 the gripper starts essentially at the goal, but the deterministic policy moves it away. This means the learned mean action at obs ≈ goal is non-zero in the wrong direction.
+Comparison with exp 1 (best frames at ./renders_best — same as exp1 because both 0%):
+- mean_distance dropped 0.61 -> 0.40 (-34%). Robot is on average ending up slightly closer.
+- The endpoint poses are not clearly better — they just happen to land in a region of state space that is closer to the typical goal distribution. There is still no goal-tracking behavior across episodes.
+- ep2 shows a NEW failure mode (retract upward) not seen in exp1, suggesting the policy has learned *some* directional behavior but it's still wrong direction relative to the goal.
 
-Why hypothesis was confirmed:
-- Of 1853 total env steps, 1000 were random pre-learning rollouts. Only 853 SAC gradient updates fired. With sparse {-1,0} reward, HER relabeling, and a 256x3 net (~410k params), 853 updates is well below what SAC needs to even start tracking goals. The policy is effectively untrained — it produces a roughly fixed action regardless of obs.
+Hypothesis (about updates) was REFUTED:
+- Predicted: STEPS_BEFORE_LEARNING 1000 -> 100 would roughly double total_updates within the 10s budget.
+- Actual: total_updates went 853 -> 890 (+4.3%). Total env steps DROPPED 1853 -> 990 (-47%).
+- Lesson: the bottleneck is GPU throughput per gradient update, not env-step count. Pre-learning random rollouts are FREE (no GPU sampling, no grad), so they inflate total_steps but don't compete with the gradient budget. Once learning starts, every env step pays for action sampling AND a gradient update, so grad steps per second is the binding constraint at ~85-90 upd/s on this hardware.
 
-Concrete suggestions for next experiments (priority order):
-1. STEPS_BEFORE_LEARNING 1000 → 100. Single highest-leverage change. Doubles available grad updates with zero downside on a small replay buffer (HER still works, the transitions just get used immediately).
-2. N_UPDATES 1 → 4 (UTD=4). REDQ-style. Multiplies the effective gradient signal per env step. Slightly increases divergence risk but cheap to revert.
-3. Dense reward shaping in training (-||achieved-desired|| instead of sparse -1/0). Gives nonzero gradient signal on every transition. The eval reward stays sparse (env-defined), so the metric remains comparable.
-4. Lower N_LAYERS 3→2 or HIDDEN_DIM 256→128. The 13-dim obs / 4-dim action probably doesn't need a 410k param net; smaller may train faster wall-clock.
+Implications for next experiments:
+- Lowering STEPS_BEFORE_LEARNING is essentially neutral for total_updates. Don't expect it alone to unlock performance.
+- To get more gradient steps in 10s, need either: (a) faster gradient steps (smaller net, smaller batch), or (b) more sample efficiency per gradient step (dense reward, n-step returns, REDQ/DroQ ensemble for stable high UTD).
+- The strongest single lever per the literature for goal-conditioned tasks is DENSE REWARD SHAPING. Replacing the sparse {-1,0} reward in the HER buffer with -||achieved-desired|| gives nonzero gradient signal on every transition, drastically improving signal-to-noise per update.
 
-Plan: exp 2 = #1 alone (clean attribution). If it lifts success_rate at all, exp 3 layers #2 on top. If exp 2 still 0.00, jump to #3 (dense reward) which gives the biggest signal change.
+Decision: DISCARD exp 2 (success_rate equal to baseline at 0%). Revert train.py.
+
+Plan exp 3:
+- Revert STEPS_BEFORE_LEARNING to 1000.
+- Modify ReplayBuffer._compute_reward to return -distance (continuous negative reward proportional to distance to goal), instead of -1 if dist > 0.05 else 0.
+- This affects both the recomputed HER rewards and (because the env's stored reward is overwritten in HER... wait, actually no — sparse stored env reward is kept for non-HER samples).
+- Cleaner approach: shape ALL rewards in the replay buffer (both HER-relabeled and originals) to -distance. The eval reward is computed by env, unaffected.
+- Predict: if exp 3 gets >0% success, dense reward is the dominant lever. Then exp 4 can layer UTD>1 or n-step returns.

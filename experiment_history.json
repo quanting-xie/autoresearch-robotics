@@ -1,7 +1,7 @@
 {
   "best_commit": "9630464",
   "best_success_rate": 0.0,
-  "total_experiments": 1,
+  "total_experiments": 2,
   "experiments": [
     {
       "id": 1,
@@ -36,16 +36,54 @@
       "status": "keep",
       "hypothesis_confirmed": true,
       "lesson_learned": "On a 10s wall-clock budget, the STEPS_BEFORE_LEARNING=1000 random warmup consumes ~54% of total env steps before any gradient update fires. Only 853 SAC updates total, far too few to train a 410k-param net even on FetchReach. The dominant constraint here is gradient steps, not env experience."
+    },
+    {
+      "id": 2,
+      "commit": "a2c73ad",
+      "timestamp": "2026-05-03T21:44:00",
+      "agent": "opus-4.7",
+      "description": "STEPS_BEFORE_LEARNING 1000 -> 100. Single-variable change to test whether earlier learning lifts gradient-update count within 10s budget.",
+      "hypothesis": "Lowering the random pre-learning warmup from 1000 to 100 will roughly double total_updates within the same 10s budget (expecting ~1700 from ~1850 total steps), enough to lift success_rate above 0.0.",
+      "changes_made": [
+        "STEPS_BEFORE_LEARNING: 1000 -> 100"
+      ],
+      "metrics": {
+        "success_rate": 0.0,
+        "mean_reward": -50.0,
+        "mean_distance": 0.402300590931012,
+        "total_steps": 990,
+        "total_episodes": 19,
+        "total_updates": 890,
+        "peak_vram_mb": 27.15185546875
+      },
+      "vlm_feedback_summary": "Robot still ignores goals; no goal-tracking behavior visible. ep2 shows a new failure mode (retract arm upward) not seen in exp1, but ep0/ep1 still collapse into the table. mean_distance dropped 0.61 -> 0.40 but driven by random end-pose distribution, not by reaching toward goals.",
+      "vlm_failure_modes": [
+        "still no goal-tracking",
+        "arm collapses into table (ep0, ep1)",
+        "new failure: arm retracts upward into vertical posture (ep2)",
+        "policy direction is inconsistent across episodes — different default poses for similar starts"
+      ],
+      "vlm_suggestions": [
+        "STEPS_BEFORE_LEARNING change is neutral for total_updates; don't pursue alone",
+        "next attack: dense reward shaping in replay buffer (-distance instead of sparse)",
+        "if dense reward unlocks >0% success, layer UTD>1 (N_UPDATES=2-4) on exp 4"
+      ],
+      "status": "discard",
+      "hypothesis_confirmed": false,
+      "lesson_learned": "GPU throughput per gradient update is the binding constraint, not env-step count. Random pre-learning rollouts are essentially free (no sample, no grad), so reducing them barely affects total_updates (853 -> 890, +4.3%). Total env steps DROP (1853 -> 990) because once learning starts, every step pays for action sampling + grad update, slowing env-step rate to ~90 steps/sec. To get more updates in 10s, need faster grad steps (smaller net/batch) OR better sample efficiency per step (dense reward, n-step returns, REDQ/DroQ)."
     }
   ],
   "insights": [
-    "On a 10s budget, gradient-step budget (not env-step budget) is the dominant constraint. STEPS_BEFORE_LEARNING=1000 directly steals ~half of available updates."
+    "Gradient-step budget on a 10s wall-clock is ~850-900 updates regardless of STEPS_BEFORE_LEARNING. The binding constraint is GPU throughput per grad step (~85-90 upd/s), NOT env-step count. Random pre-learning steps are free; learning steps cost ~10ms each.",
+    "Total_steps is misleading on this setup — exp1 had 1853 total steps but only 853 grad updates because the first 1000 were free random rollouts. Don't optimize total_steps; optimize total_updates."
   ],
-  "failed_directions": [],
+  "failed_directions": [
+    "STEPS_BEFORE_LEARNING 1000 -> 100 alone (exp2): only +4% updates, 0% success_rate. The lever was wrong; not the warmup but the per-update cost."
+  ],
   "promising_directions": [
-    "Reduce STEPS_BEFORE_LEARNING to 100",
-    "Raise UTD ratio (N_UPDATES) to 4-8 with REDQ/DroQ-style critic regularization if needed",
-    "Dense reward shaping in training (eval reward stays sparse via env)",
-    "Smaller network for the 13-dim obs / 4-dim action FetchReach problem"
+    "Dense reward shaping in replay buffer (-distance instead of sparse {-1, 0}) — biggest expected lift per literature for goal-conditioned tasks",
+    "Smaller/faster network (e.g. 128x2) — more grad steps per second within the same 10s budget",
+    "Raise UTD (N_UPDATES) — more grad signal per env step, may need DroQ-style dropout/LayerNorm if Q-values diverge",
+    "n-step returns (n=3-5) on the critic for stronger value targets given dense reward"
   ]
 }

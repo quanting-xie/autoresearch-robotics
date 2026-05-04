@@ -1,53 +1,57 @@
-Experiment 3 — target_entropy = -action_dim/2 (was -action_dim)
-================================================================
+Experiment 4 — dense training reward (sparse stays for eval)
+=============================================================
 eval_success_rate: 0.00 (was 0.10 baseline)
-mean_reward: -50.00   |   mean_distance: 0.209
-training_seconds: 1800   |   total_steps: 263,232 (vs 279K baseline; 6% slower)
-total_updates: 262,232
+mean_reward: -50.00   |   mean_distance: 0.220
+training_seconds: 1800   |   total_steps: 275,727 (vs 279K baseline; comparable)
 
-VERDICT: WORSE. Discard. Plus a sign-convention mistake on my part.
+VERDICT: WORSE. Discard. But the failure tells us something useful.
 
 What I see in the frames
 ------------------------
-- ep0_end: gripper has RETREATED upward, well away from cube. Worse than
-  baseline's "descend to cube" behaviour.
-- ep1_end: gripper is on table at cube (similar to baseline reach).
-- ep2_end: gripper on table next to cube (similar to baseline reach).
-Behaviour is more variable than baseline — sometimes the policy retreats
-instead of reaching. Consistent with the unstable critic.
+- ep0_end: gripper sits ON the table right NEXT to the cube. The goal (red)
+  is also right next to the cube. Cube never moved.
+- ep1_end: gripper directly at the cube; cube unmoved.
+- ep2_end: gripper at the cube; cube unmoved.
+- Compared to baseline: behaviour looks essentially identical (reach the
+  cube, don't manipulate). Dense reward did not produce manipulation.
 
-The big training-log surprise
------------------------------
-- Alpha collapsed even further than baseline: 1.0 -> 0.009 (vs baseline 0.12).
-- Critic loss EXPLODED to ~50 by end of run (vs baseline ~0.15). Q-values
-  are diverging.
-- This is the OPPOSITE of what I predicted. I expected target_entropy=-2 to
-  RAISE alpha and keep more exploration alive.
+The training-log smoking gun
+----------------------------
+- Alpha collapsed to literally **0.000** by mid-training (vs 0.12 baseline,
+  even worse than exp 2's 0.002).
+- Critic loss settled at ~0.08 (LOW — the critic actually fits the dense
+  value well; that part worked).
+- Actor loss is small positive ~0.43 (no entropy bonus, near-deterministic).
+- Throughput unaffected (~170 steps/sec, same as baseline).
 
-SIGN CONVENTION MISTAKE (root cause)
-------------------------------------
-The code's `target_entropy = -action_dim` actually means H_target = +action_dim
-(the negative-of-target-entropy convention used in the alpha update). So:
-  - target_entropy = -4  =>  H_target = 4   (baseline)
-  - target_entropy = -2  =>  H_target = 2   (exp 3 — LESS entropy, not more!)
-  - target_entropy = -8  =>  H_target = 8   (would be MORE entropy)
-I drove H_target DOWN, so auto-alpha pushed alpha down further to match a
-narrower distribution. With alpha near zero AND no exploration bonus, the
-critic's Q-targets drift unchecked → divergence.
+Why dense alone doesn't work here
+---------------------------------
+Two compounding reasons:
+1. **Auto-alpha collapse is amplified by dense reward.** With sparse reward,
+   Q-values are bounded in a narrow range (-50 to 0), so the entropy bonus
+   alpha * log_prob has comparable magnitude to Q. When Q signal grows
+   (dense reward), alpha shrinks toward zero to let the policy match the
+   bigger Q gradient. Result: zero exploration.
+2. **Dense reward is constant per episode if the cube doesn't move.**
+   reward = -||cube_pos - goal||. Cube only moves when bumped. With alpha=0
+   and no random exploration, the deterministic policy never bumps the cube,
+   so the dense gradient is trivially flat per episode and the policy
+   converges to "move gripper near cube and hover."
+3. So the visual behaviour looks like baseline reach: the task is reduced
+   to "minimize ||grip - cube|| because gripper position is what changes,
+   even though the reward depends on cube position."
 
-Updated planning
-----------------
-1. Lesson recorded: H_target = -target_entropy. To increase exploration,
-   make target_entropy MORE negative (e.g., -8). To decrease, less negative.
-2. But — even a corrected exploration tweak only buys us time before alpha
-   stabilizes. The real bottleneck (exp 1's lesson) is that random exploration
-   in 4D action space almost never produces a coordinated grasp+lift event,
-   so HER never has a non-trivial achieved_goal trajectory to learn from.
-3. Next experiment goes more radical: DENSE REWARD FOR TRAINING.
-   Replace sparse env reward with -||achieved_goal - desired_goal|| in the
-   replay buffer. Eval reward stays sparse (evaluate.py is read-only). Even
-   tiny accidental cube nudges produce non-zero reward gradient -> signal
-   for "cube closer to goal is good." This is the standard ablation in the
-   Andrychowicz HER paper and directly attacks the signal starvation issue.
-4. If dense reward also fails, fall back to fixed alpha = 0.2 + dense, then
-   gripper-biased OU exploration noise.
+Critically: dense reward IS the right idea, but ONLY if exploration stays
+alive. Otherwise it just lets auto-alpha collapse harder.
+
+Next move: combine dense + fixed alpha
+--------------------------------------
+Set AUTO_ALPHA = False. Alpha stays at INIT_ALPHA = 0.2 throughout training.
+This guarantees a non-trivial entropy bonus and persistent random action
+noise, which means the gripper will keep bumping the cube. When it does,
+dense reward gives a clear gradient on whether the bump moved the cube
+toward/away from the goal. Combined, these address signal starvation AND
+exploration death — the two failure modes identified across exps 1-4.
+
+If exp 5 still doesn't work, fall back to gripper-biased OU noise during
+warmup (more targeted than uniform noise).

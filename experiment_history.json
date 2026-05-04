@@ -1,7 +1,7 @@
 {
   "best_commit": "ed69e5e",
   "best_success_rate": 0.1,
-  "total_experiments": 3,
+  "total_experiments": 4,
   "experiments": [
     {
       "id": 1,
@@ -110,6 +110,41 @@
       "status": "discard",
       "hypothesis_confirmed": false,
       "lesson_learned": "Two lessons. (1) SIGN CONVENTION: in this codebase, `target_entropy` field is the NEGATIVE of the entropy target H_target (used in alpha update as log_alpha * (log_prob + target_entropy)). To raise exploration, make it MORE negative. (2) MORE IMPORTANT: even a corrected exploration tweak only delays alpha collapse. Random 4D action exploration almost never produces a coordinated grasp+lift event in 30 min, so HER's achieved_goal trajectory is essentially constant and the manipulation signal never emerges. The next experiment must produce signal even without successful grasping \u2014 dense reward for training is the cleanest way to do that."
+    },
+    {
+      "id": 4,
+      "commit": "e81c811",
+      "timestamp": "2026-05-03T21:20:26",
+      "agent": "opus-4.7",
+      "description": "Dense training reward only (eval sparse): training reward = -||next_achieved_goal - desired_goal||; ReplayBuffer._compute_reward switched to same dense form.",
+      "hypothesis": "HER fails because cube doesn't move and all relabeled goals collapse to cube-start. Dense reward gives signal even from tiny accidental cube nudges. Predicted success_rate 0.10 -> 0.20-0.60.",
+      "changes_made": [
+        "Training loop: shaped_reward = -||next_obs.achieved_goal - obs.desired_goal||, used in buffer.add",
+        "ReplayBuffer._compute_reward: returns -d (negative L2) instead of -(d > 0.05)"
+      ],
+      "metrics": {
+        "success_rate": 0.0,
+        "mean_reward": -50.0,
+        "mean_distance": 0.22043448822896122,
+        "total_steps": 275727,
+        "total_episodes": 5514,
+        "total_updates": 274727,
+        "peak_vram_mb": 27.40087890625
+      },
+      "vlm_feedback_summary": "Hypothesis NOT confirmed: success rate stays at 0. Visual behaviour identical to baseline (gripper reaches cube, no manipulation). Critic loss is LOW (~0.08 \u2014 fits dense value well) but alpha collapsed to 0.000 because the bigger Q signal made the entropy bonus negligible by comparison; deterministic policy + flat-per-episode reward (cube doesn't move) => no exploration of manipulation.",
+      "vlm_failure_modes": [
+        "alpha_collapse_to_zero: dense reward amplifies Q magnitude so auto-alpha drives alpha exactly to 0",
+        "no_random_bumps: with alpha=0 and deterministic policy, gripper never randomly bumps cube, so dense reward gradient is flat per episode (reward ~ -||cube_start - goal||, constant)",
+        "task_collapse_to_reach: policy converges to 'minimize ||grip - cube||' since that's the only thing it can affect under near-deterministic actions"
+      ],
+      "vlm_suggestions": [
+        "NEXT: combine dense reward with FIXED alpha = 0.2 (AUTO_ALPHA = False). Persistent entropy bonus + dense gradient should jointly fix signal starvation and exploration death.",
+        "Backup: gripper-biased OU exploration noise during warmup",
+        "If dense+fixed alpha still fails, the deterministic-policy bottleneck may need a temporally-correlated exploration scheme rather than i.i.d. action noise."
+      ],
+      "status": "discard",
+      "hypothesis_confirmed": false,
+      "lesson_learned": "Dense reward IS the right idea for breaking signal starvation, but it cannot work alone with auto-alpha: the bigger Q magnitude makes auto-alpha collapse alpha to zero, killing the very exploration that would let the policy discover manipulation. Auto-alpha effectively re-balances entropy against Q magnitude, so reward-shape changes have first-order effects on the equilibrium alpha. Solution: pin alpha (AUTO_ALPHA=False) so reward shape and exploration stay decoupled."
     }
   ],
   "insights": [
@@ -119,17 +154,18 @@
     "LayerNorm in actor under AUTO_ALPHA causes alpha to collapse even further (~0.002), because LN lets the squashed Gaussian satisfy the target entropy cheaply. LN also slows throughput ~30% on this small network.",
     "Optimization-stability tweaks (LN-only) cannot rescue this run as long as exploration is dead; the bottleneck order is exploration > optimization.",
     "CODEBASE CONVENTION: SACAgent.target_entropy is the NEGATIVE of H_target (used in alpha_loss = -log_alpha * (log_prob + target_entropy)). target_entropy = -4 means H_target = 4. To increase exploration, make target_entropy MORE negative (e.g., -8).",
-    "Without any exploration regularization (alpha near 0), the critic Q-values can diverge to ~50 \u2014 entropy bonus also acts as a soft constraint on Q-magnitude."
+    "Without any exploration regularization (alpha near 0), the critic Q-values can diverge to ~50 \u2014 entropy bonus also acts as a soft constraint on Q-magnitude.",
+    "AUTO-ALPHA + DENSE REWARD INTERACTION: bigger Q magnitude from dense reward causes auto-alpha to drive alpha all the way to 0. So any reward-shape change implicitly retunes the exploration equilibrium. Pinning alpha (AUTO_ALPHA=False) decouples them."
   ],
   "failed_directions": [
     "LayerNorm in BOTH actor + critic with AUTO_ALPHA on. Hurts reach, kills alpha, slows throughput. May still be worth trying critic-only LN once exploration is fixed.",
-    "Halving target_entropy magnitude (target_entropy = -action_dim/2). Counter-productive in this code's sign convention: lowers H_target, alpha collapses further, critic diverges. To go the other way, use -action_dim*2."
+    "Halving target_entropy magnitude (target_entropy = -action_dim/2). Counter-productive in this code's sign convention: lowers H_target, alpha collapses further, critic diverges. To go the other way, use -action_dim*2.",
+    "Dense reward ALONE (with AUTO_ALPHA still on). Alpha collapses to 0, deterministic policy never bumps cube, dense gradient is flat per episode. Need to pin alpha to make dense reward work."
   ],
   "promising_directions": [
-    "DENSE REWARD FOR TRAINING (next): replace sparse env reward with -||achieved_goal - desired_goal|| in buffer.add and ReplayBuffer._compute_reward. Eval is sparse via evaluate.py \u2014 unaffected.",
-    "Fixed alpha = 0.2 (simpler, no auto tuning) \u2014 combine with dense reward if dense alone isn't enough",
-    "Gripper-biased OU exploration noise during warmup",
-    "UTD > 1 (after the signal problem is fixed)",
+    "DENSE REWARD + FIXED ALPHA = 0.2 (next): combine the right signal (dense) with persistent exploration (fixed alpha). Two changes, root-cause-aligned.",
+    "Gripper-biased OU exploration noise during warmup (if dense+fixed-alpha still falls short)",
+    "UTD > 1 (after the signal+exploration combo works)",
     "MHER(lambda) for n-step HER without bias",
     "Critic-only LN (revisit once exploration works)",
     "If revisiting auto-alpha: target_entropy = -action_dim*2 = -8 (CORRECT direction this time)"

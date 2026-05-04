@@ -13,6 +13,7 @@ dependencies = [
     "imageio[ffmpeg]>=2.34",
     "Pillow>=10.0",
     "wandb>=0.18",
+    "google-genai>=0.5",
 ]
 
 [tool.uv.sources]

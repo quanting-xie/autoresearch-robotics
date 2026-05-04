@@ -1,0 +1,58 @@
+Experiment 1 — baseline SAC+HER on FetchPickAndPlace-v4
+=========================================================
+eval_success_rate: 0.10  |  mean_reward: -45.0  |  mean_distance: 0.214
+training_seconds: 1800   |  total_steps: 279079  |  total_updates: 278079
+
+What I see in the rendered frames
+---------------------------------
+- Episode 0: cube and goal are both on the table, very close together. Gripper
+  moves down to the cube area and stays roughly hovering there. Cube does NOT
+  appear to move. This is the kind of episode that contributes the rare
+  successes — when the desired_goal happens to land within 5 cm of the cube's
+  starting position, "do nothing" almost succeeds.
+- Episode 1: cube is on the table; goal (red sphere) is hovering in mid-air to
+  the right of the table — a true pick-and-place goal. Gripper descends near
+  the cube but never grasps and never lifts. Final distance is large.
+- Episode 2: cube on table near front; goal on the table next to the cube.
+  Gripper plunges into the table area at the cube but no grasp / no lift.
+  Cube unmoved.
+
+Failure modes
+-------------
+1. NO GRASPING: across all three episodes the gripper hovers/descends to the
+   cube but never closes the fingers. The 4th action dim (gripper open/close)
+   is essentially never used to grasp.
+2. NO LIFTING: even when the gripper is on the cube, the arm does not raise
+   afterward. So mid-air goals are unreachable.
+3. The reach component (move end-effector to cube vicinity) IS learned —
+   that's the easy half of pick-and-place. The manipulate component is not.
+
+Why HER didn't rescue this
+--------------------------
+HER relabels future achieved_goals (cube positions). But because the cube
+never moves in any rollout, the achieved_goal trajectory is essentially a
+constant — every relabeled "future goal" is just the cube's start position.
+So HER provides plenty of signal for "reach the cube" and almost no signal
+for "move the cube to a target." This is consistent with the visual
+behaviour: reaching is solved, manipulation is not.
+
+The training log also shows alpha collapsing from 1.0 -> 0.12 in the first
+~8K steps (auto-alpha with target_entropy = -action_dim = -4 is aggressive),
+so by the time the policy has the chance to exploit any structure, it is
+nearly deterministic — narrowing the chance of randomly discovering grasping.
+
+Concrete suggestions (ranked)
+-----------------------------
+1. **LayerNorm in actor + critic** (next experiment): well-supported in
+   recent SAC literature, low risk, may stabilize the critic enough that
+   weak grasping signal isn't washed out. Cheap insurance.
+2. **Higher UTD ratio** (e.g., 4 gradient updates per env step): squeeze
+   more learning out of the data we have. Pairs naturally with LayerNorm.
+3. **Slow alpha collapse / higher target_entropy**: the policy goes
+   near-deterministic too fast for sparse-reward exploration. Try
+   target_entropy = -action_dim/2 or fixed alpha = 0.2.
+4. **Action-space exploration biased toward the gripper dimension**: the
+   gripper dim is binary-ish but treated like the others; biased noise on
+   action[3] during warmup could surface more grasping events.
+5. **n-step returns / MHER(λ)**: bigger lift; revisit if the cheaper
+   levers above don't move the needle.

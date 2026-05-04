@@ -1,18 +1,18 @@
 {
   "best_commit": "6b5cfd7",
   "best_success_rate": 0.2,
-  "total_experiments": 17,
+  "total_experiments": 18,
   "experiments": [
     {
       "id": 12,
       "commit": "39f01ce",
       "timestamp": "2026-05-01T20:54:10",
       "agent": "codex",
-      "description": "N_UPDATES=4 with AT_GOAL_BONUS reduced from 20 to 5 after human feedback about jerky pick-and-place behavior.",
-      "hypothesis": "Reducing the at-goal bonus from 20 to 5 would preserve enough final-placement incentive while avoiding the jerky, push-only behavior the human observed in exp10; if correct, success_rate should remain near 0.20 and the frames should show smoother object transport.",
+      "description": "\u5728\u6536\u5230\u4eba\u7c7b\u5173\u4e8e pick-and-place \u884c\u4e3a\u751f\u786c\u7684\u53cd\u9988\u540e\uff0c\u5c06 AT_GOAL_BONUS \u4ece 20 \u964d\u81f3 5\uff0c\u540c\u65f6\u4fdd\u6301 N_UPDATES=4\u3002",
+      "hypothesis": "\u5c06 at-goal bonus \u4ece 20 \u964d\u81f3 5 \u5e94\u80fd\u4fdd\u7559\u8db3\u591f\u7684\u6700\u7ec8\u653e\u7f6e\u6fc0\u52b1\uff0c\u540c\u65f6\u907f\u514d exp10 \u4e2d\u89c2\u5bdf\u5230\u7684\u751f\u786c\u3001\u7eaf\u63a8\u52a8\u884c\u4e3a\uff1b\u5982\u679c\u5047\u8bbe\u6210\u7acb\uff0csuccess_rate \u5e94\u4fdd\u6301\u5728 0.20 \u9644\u8fd1\uff0c\u4e14\u753b\u9762\u5e94\u5448\u73b0\u66f4\u5e73\u6ed1\u7684\u7269\u4f53\u642c\u8fd0\u8fc7\u7a0b\u3002",
       "changes_made": [
-        "Kept high replay ratio N_UPDATES=4 from the current branch.",
-        "Reduced AT_GOAL_BONUS to 5.0, as committed in exp12."
+        "\u4fdd\u7559\u5f53\u524d\u5206\u652f\u4e2d\u8f83\u9ad8\u7684 replay ratio N_UPDATES=4\u3002",
+        "\u6309 exp12 \u63d0\u4ea4\u6240\u793a\uff0c\u5c06 AT_GOAL_BONUS \u964d\u81f3 5.0\u3002"
       ],
       "metrics": {
         "success_rate": 0.1,
@@ -23,33 +23,33 @@
         "total_updates": 252204,
         "peak_vram_mb": 28.97119140625
       },
-      "vlm_feedback_summary": "gripper reaches near block but rarely moves it; only easy near-goal case likely succeeds",
+      "vlm_feedback_summary": "\u5939\u722a\u80fd\u63a5\u8fd1\u65b9\u5757\u4f46\u5f88\u5c11\u63a8\u52a8\u5b83\uff1b\u53ef\u80fd\u53ea\u6709\u521d\u59cb\u4f4d\u59ff\u5c31\u9760\u8fd1\u76ee\u6807\u7684\u7b80\u5355\u60c5\u5f62\u624d\u4f1a\u6210\u529f",
       "vlm_failure_modes": [
-        "reaches near object but does not consistently close or grasp",
-        "little object displacement unless the initial geometry is already easy",
-        "final placement incentive appears too weak after lowering AT_GOAL_BONUS",
-        "N_UPDATES=4 trades away environment diversity without improving success"
+        "\u9760\u8fd1\u7269\u4f53\u4f46\u65e0\u6cd5\u7a33\u5b9a\u95ed\u5408\u6216\u6293\u53d6",
+        "\u9664\u975e\u521d\u59cb\u51e0\u4f55\u6761\u4ef6\u672c\u8eab\u8f83\u6613\uff0c\u5426\u5219\u7269\u4f53\u51e0\u4e4e\u6ca1\u6709\u4f4d\u79fb",
+        "\u964d\u4f4e AT_GOAL_BONUS \u540e\uff0c\u6700\u7ec8\u653e\u7f6e\u6fc0\u52b1\u663e\u5f97\u8fc7\u5f31",
+        "N_UPDATES=4 \u727a\u7272\u4e86\u73af\u5883\u591a\u6837\u6027\uff0c\u4f46\u5e76\u672a\u5e26\u6765 success \u63d0\u5347"
       ],
       "vlm_suggestions": [
-        "restore AT_GOAL_BONUS to 20",
-        "return to the proven N_UPDATES=3 setting from exp10",
-        "if addressing jerkiness, add a smooth local final-placement reward rather than lowering the flat success bonus"
+        "\u5c06 AT_GOAL_BONUS \u6062\u590d\u4e3a 20",
+        "\u56de\u5230 exp10 \u4e2d\u5df2\u9a8c\u8bc1\u7684 N_UPDATES=3 \u8bbe\u7f6e",
+        "\u82e5\u8981\u89e3\u51b3\u52a8\u4f5c\u751f\u786c\u95ee\u9898\uff0c\u5e94\u589e\u52a0\u5e73\u6ed1\u7684\u5c40\u90e8\u6700\u7ec8\u653e\u7f6e\u5956\u52b1\uff0c\u800c\u975e\u964d\u4f4e\u786c\u6027\u7684\u6210\u529f bonus"
       ],
       "status": "discard",
       "hypothesis_confirmed": false,
-      "lesson_learned": "The reduced at-goal bonus regressed success_rate from the existing 0.20 best to 0.10 and made behavior look like approach/hover rather than robust transport; the +20 placement incentive was load-bearing for the metric."
+      "lesson_learned": "\u964d\u4f4e at-goal bonus \u4f7f success_rate \u4ece\u539f\u6709 0.20 \u7684\u6700\u4f73\u503c\u56de\u9000\u81f3 0.10\uff0c\u884c\u4e3a\u8868\u73b0\u66f4\u50cf\u63a5\u8fd1/\u60ac\u505c\u800c\u975e\u7a33\u5065\u642c\u8fd0\uff1b+20 \u7684\u653e\u7f6e\u6fc0\u52b1\u5bf9\u8be5\u6307\u6807\u8d77\u5230\u5173\u952e\u652f\u6491\u4f5c\u7528\u3002"
     },
     {
       "id": 13,
       "commit": "0f52eeb",
       "timestamp": "2026-05-03T19:24:37",
       "agent": "codex",
-      "description": "Kept exp10's N_UPDATES=3 and AT_GOAL_BONUS=20 anchor, but damped the block-velocity shaping bonus inside 10 cm of the goal.",
-      "hypothesis": "Exp10's +20 at-goal bonus is load-bearing; jerkiness may come from the velocity bonus continuing to reward block motion near the target. Scaling velocity bonus down inside 10 cm should preserve success while reducing near-goal overshoot.",
+      "description": "\u4fdd\u7559 exp10 \u7684 N_UPDATES=3 \u548c AT_GOAL_BONUS=20 \u8fd9\u4e00\u951a\u70b9\uff0c\u4f46\u5728\u8ddd\u76ee\u6807 10 cm \u8303\u56f4\u5185\u5bf9\u65b9\u5757\u901f\u5ea6 shaping bonus \u8fdb\u884c\u8870\u51cf\u3002",
+      "hypothesis": "exp10 \u7684 +20 at-goal bonus \u8d77\u5230\u5173\u952e\u652f\u6491\u4f5c\u7528\uff1b\u52a8\u4f5c\u751f\u786c\u53ef\u80fd\u6e90\u4e8e\u901f\u5ea6 bonus \u5728\u76ee\u6807\u9644\u8fd1\u4ecd\u6301\u7eed\u5956\u52b1\u65b9\u5757\u8fd0\u52a8\u3002\u5728 10 cm \u5185\u7f29\u653e\u901f\u5ea6 bonus \u5e94\u80fd\u5728\u4fdd\u6301 success \u7684\u540c\u65f6\u51cf\u5c11\u8fd1\u76ee\u6807\u5904\u7684\u8fc7\u51b2\u3002",
       "changes_made": [
-        "Added VEL_DAMP_GOAL_RADIUS=0.10.",
-        "Scaled vel_bonus by min(d_block_goal / VEL_DAMP_GOAL_RADIUS, 1.0) in both HER replay reward recomputation and online reward logging.",
-        "Left N_UPDATES=3 and AT_GOAL_BONUS=20.0 unchanged from exp10."
+        "\u65b0\u589e VEL_DAMP_GOAL_RADIUS=0.10\u3002",
+        "\u5728 HER replay \u5956\u52b1\u91cd\u8ba1\u7b97\u548c\u5728\u7ebf\u5956\u52b1\u8bb0\u5f55\u4e2d\uff0c\u5c06 vel_bonus \u6309 min(d_block_goal / VEL_DAMP_GOAL_RADIUS, 1.0) \u7f29\u653e\u3002",
+        "\u4fdd\u6301 N_UPDATES=3 \u548c AT_GOAL_BONUS=20.0 \u4e0e exp10 \u4e00\u81f4\u3002"
       ],
       "metrics": {
         "success_rate": 0.0,
@@ -60,33 +60,33 @@
         "total_updates": 244815,
         "peak_vram_mb": 28.97119140625
       },
-      "vlm_feedback_summary": "gripper reaches or hovers near the block, but the block stays stationary and no sampled rollout succeeds",
+      "vlm_feedback_summary": "\u5939\u722a\u63a5\u8fd1\u6216\u60ac\u505c\u5728\u65b9\u5757\u9644\u8fd1\uff0c\u4f46\u65b9\u5757\u4fdd\u6301\u9759\u6b62\uff0c\u6240\u6709\u91c7\u6837 rollout \u5747\u672a\u6210\u529f",
       "vlm_failure_modes": [
-        "approach without reliable grasp or push",
-        "object remains stationary in all sampled rollouts",
-        "arm sometimes moves away after reaching the table",
-        "near-goal velocity damping weakened useful transport shaping before stable manipulation emerged"
+        "\u4ec5\u6709\u63a5\u8fd1\uff0c\u6ca1\u6709\u53ef\u9760\u7684\u6293\u53d6\u6216\u63a8\u52a8",
+        "\u6240\u6709\u91c7\u6837 rollout \u4e2d\u7269\u4f53\u90fd\u4fdd\u6301\u9759\u6b62",
+        "\u673a\u68b0\u81c2\u5728\u5230\u8fbe\u684c\u9762\u540e\u6709\u65f6\u4f1a\u79fb\u5f00",
+        "\u5728\u7a33\u5b9a\u64cd\u4f5c\u884c\u4e3a\u51fa\u73b0\u4e4b\u524d\uff0c\u8fd1\u76ee\u6807\u901f\u5ea6\u8870\u51cf\u5c31\u524a\u5f31\u4e86\u6709\u7528\u7684\u642c\u8fd0 shaping"
       ],
       "vlm_suggestions": [
-        "restore the full velocity bonus",
-        "preserve exp10's N_UPDATES=3 and AT_GOAL_BONUS=20 anchor",
-        "try contact-acquisition shaping, such as rewarding gripper closure only when the gripper is close to the block"
+        "\u6062\u590d\u5b8c\u6574\u7684\u901f\u5ea6 bonus",
+        "\u4fdd\u6301 exp10 \u7684 N_UPDATES=3 \u4e0e AT_GOAL_BONUS=20 \u951a\u70b9",
+        "\u5c1d\u8bd5\u63a5\u89e6\u83b7\u53d6\u76f8\u5173\u7684 shaping\uff0c\u4f8b\u5982\u4ec5\u5728\u5939\u722a\u9760\u8fd1\u65b9\u5757\u65f6\u624d\u5956\u52b1\u5939\u722a\u95ed\u5408"
       ],
       "status": "discard",
       "hypothesis_confirmed": false,
-      "lesson_learned": "The velocity bonus remains useful for this fragile policy; damping it inside 10 cm regressed success to 0.0 and eliminated visible object movement."
+      "lesson_learned": "\u5bf9\u5f53\u524d\u8fd9\u4e00\u8106\u5f31\u7684 policy \u800c\u8a00\uff0c\u901f\u5ea6 bonus \u4ecd\u7136\u6709\u7528\uff1b\u5728 10 cm \u5185\u5bf9\u5176\u8fdb\u884c\u8870\u51cf\u4f7f success \u56de\u9000\u81f3 0.0\uff0c\u5e76\u4e14\u753b\u9762\u4e2d\u518d\u65e0\u53ef\u89c1\u7684\u7269\u4f53\u8fd0\u52a8\u3002"
     },
     {
       "id": 14,
       "commit": "82df6c2",
       "timestamp": "2026-05-03T19:57:01",
       "agent": "codex",
-      "description": "Kept exp10 transport rewards and added a small close-command bonus gated to within 6 cm of the block.",
-      "hypothesis": "Visual feedback showed reach/hover without contact. Rewarding negative gripper action only near the block should improve grasp/push contact without rewarding closed motion far away, recovering success to at least the 0.20 best.",
+      "description": "\u4fdd\u7559 exp10 \u7684\u642c\u8fd0\u5956\u52b1\uff0c\u5e76\u65b0\u589e\u4e00\u4e2a\u4ec5\u5728\u8ddd\u65b9\u5757 6 cm \u5185\u751f\u6548\u7684\u5c0f\u5e45\u95ed\u5408\u6307\u4ee4 bonus\u3002",
+      "hypothesis": "\u89c6\u89c9\u53cd\u9988\u663e\u793a\u5b58\u5728\u63a5\u8fd1/\u60ac\u505c\u4f46\u65e0\u63a5\u89e6\u7684\u73b0\u8c61\u3002\u4ec5\u5728\u65b9\u5757\u9644\u8fd1\u5956\u52b1\u8d1f\u5411\u5939\u722a\u52a8\u4f5c\u5e94\u80fd\u63d0\u5347\u6293\u53d6/\u63a8\u52a8\u63a5\u89e6\uff0c\u800c\u4e0d\u4f1a\u5956\u52b1\u8fdc\u5904\u7684\u95ed\u5408\u52a8\u4f5c\uff0c\u4f7f success \u81f3\u5c11\u6062\u590d\u5230 0.20 \u7684\u6700\u4f73\u503c\u3002",
       "changes_made": [
-        "Added CONTACT_GRIP_RADIUS=0.06 and CONTACT_CLOSE_BONUS=1.0.",
-        "Added close_bonus = CONTACT_CLOSE_BONUS * near_contact * max(-action[3], 0) to online reward.",
-        "Passed sampled actions into HER reward recomputation so relabeled rewards include the same close-command shaping."
+        "\u65b0\u589e CONTACT_GRIP_RADIUS=0.06 \u548c CONTACT_CLOSE_BONUS=1.0\u3002",
+        "\u5728\u5728\u7ebf\u5956\u52b1\u4e2d\u52a0\u5165 close_bonus = CONTACT_CLOSE_BONUS * near_contact * max(-action[3], 0)\u3002",
+        "\u5c06\u91c7\u6837\u7684 action \u4f20\u5165 HER \u5956\u52b1\u91cd\u8ba1\u7b97\u4e2d\uff0c\u4f7f\u91cd\u6807\u8bb0\u7684\u5956\u52b1\u5305\u542b\u540c\u6837\u7684\u95ed\u5408\u6307\u4ee4 shaping\u3002"
       ],
       "metrics": {
         "success_rate": 0.0,
@@ -97,32 +97,32 @@
         "total_updates": 218592,
         "peak_vram_mb": 28.97119140625
       },
-      "vlm_feedback_summary": "gripper posture changes near the block, but contact is weak or misdirected and the block is not transported",
+      "vlm_feedback_summary": "\u5939\u722a\u5728\u65b9\u5757\u9644\u8fd1\u4f1a\u6539\u53d8\u59ff\u6001\uff0c\u4f46\u63a5\u89e6\u8f83\u5f31\u6216\u65b9\u5411\u504f\u5dee\uff0c\u65b9\u5757\u672a\u88ab\u642c\u8fd0",
       "vlm_failure_modes": [
-        "weak contact that does not move the block to the goal",
-        "gripper can drive down by the table edge after approaching",
-        "block remains stationary or minimally displaced",
-        "action-dependent close shaping adds local behavior without solving transport"
+        "\u63a5\u89e6\u8f83\u5f31\uff0c\u65e0\u6cd5\u5c06\u65b9\u5757\u9001\u81f3\u76ee\u6807",
+        "\u5939\u722a\u5728\u63a5\u8fd1\u540e\u53ef\u80fd\u6cbf\u684c\u6cbf\u5411\u4e0b\u8fd0\u52a8",
+        "\u65b9\u5757\u4fdd\u6301\u9759\u6b62\u6216\u4ec5\u6709\u6781\u5c0f\u4f4d\u79fb",
+        "\u4f9d\u8d56\u52a8\u4f5c\u7684\u95ed\u5408 shaping \u589e\u52a0\u4e86\u5c40\u90e8\u884c\u4e3a\uff0c\u4f46\u5e76\u672a\u89e3\u51b3\u642c\u8fd0\u95ee\u9898"
       ],
       "vlm_suggestions": [
-        "remove the contact-close bonus",
-        "restore exp10 reward shaping",
-        "isolate N_UPDATES=4 with AT_GOAL_BONUS=20 because exp12 confounded replay ratio with a weakened terminal bonus"
+        "\u79fb\u9664\u63a5\u89e6\u95ed\u5408 bonus",
+        "\u6062\u590d exp10 \u7684\u5956\u52b1 shaping",
+        "\u5355\u72ec\u9a8c\u8bc1 N_UPDATES=4 \u4e0e AT_GOAL_BONUS=20 \u7684\u7ec4\u5408\uff0c\u56e0\u4e3a exp12 \u628a replay ratio \u4e0e\u51cf\u5f31\u7684\u7ec8\u5c40 bonus \u6df7\u5728\u4e86\u4e00\u8d77"
       ],
       "status": "discard",
       "hypothesis_confirmed": false,
-      "lesson_learned": "A small near-block close-command bonus did not improve sparse success; the bottleneck is goal-directed transport after approach/contact, not just issuing the close action."
+      "lesson_learned": "\u9760\u8fd1\u65b9\u5757\u65f6\u7684\u5c0f\u5e45\u95ed\u5408\u6307\u4ee4 bonus \u5e76\u672a\u6539\u5584\u7a00\u758f success\uff1b\u74f6\u9888\u5728\u4e8e\u63a5\u8fd1/\u63a5\u89e6\u4e4b\u540e\u7684\u76ee\u6807\u5bfc\u5411\u642c\u8fd0\uff0c\u800c\u975e\u4ec5\u4ec5\u662f\u53d1\u51fa\u95ed\u5408\u52a8\u4f5c\u3002"
     },
     {
       "id": 15,
       "commit": "7772d58",
       "timestamp": "2026-05-03T20:28:44",
       "agent": "codex",
-      "description": "Isolated N_UPDATES=4 while keeping exp10's AT_GOAL_BONUS=20 and transport reward shaping.",
-      "hypothesis": "Exp12's failure confounded RR=4 with reducing AT_GOAL_BONUS to 5. Keeping the exp10 reward anchor and increasing only replay ratio may improve value fitting without weakening final-placement incentive.",
+      "description": "\u5728\u4fdd\u7559 exp10 \u7684 AT_GOAL_BONUS=20 \u4e0e\u642c\u8fd0\u5956\u52b1 shaping \u7684\u540c\u65f6\uff0c\u5355\u72ec\u9a8c\u8bc1 N_UPDATES=4 \u7684\u6548\u679c\u3002",
+      "hypothesis": "exp12 \u7684\u5931\u8d25\u6df7\u6dc6\u4e86 RR=4 \u4e0e\u5c06 AT_GOAL_BONUS \u964d\u81f3 5 \u8fd9\u4e24\u4e2a\u53d8\u5316\u3002\u4fdd\u6301 exp10 \u7684\u5956\u52b1\u951a\u70b9\u3001\u4ec5\u63d0\u9ad8 replay ratio\uff0c\u53ef\u80fd\u5728\u4e0d\u524a\u5f31\u6700\u7ec8\u653e\u7f6e\u6fc0\u52b1\u7684\u524d\u63d0\u4e0b\u6539\u5584\u4ef7\u503c\u62df\u5408\u3002",
       "changes_made": [
-        "Changed N_UPDATES from 3 to 4.",
-        "Kept SHAPING_GRIP_COEF, SHAPING_GOAL_COEF, SHAPING_VEL_COEF, MAX_VEL_BONUS, and AT_GOAL_BONUS unchanged from exp10."
+        "\u5c06 N_UPDATES \u4ece 3 \u6539\u4e3a 4\u3002",
+        "\u4fdd\u6301 SHAPING_GRIP_COEF\u3001SHAPING_GOAL_COEF\u3001SHAPING_VEL_COEF\u3001MAX_VEL_BONUS \u548c AT_GOAL_BONUS \u4e0e exp10 \u4e00\u81f4\u3002"
       ],
       "metrics": {
         "success_rate": 0.1,
@@ -133,33 +133,33 @@
         "total_updates": 216512,
         "peak_vram_mb": 28.97119140625
       },
-      "vlm_feedback_summary": "RR=4 recovers one success but sampled frames still show weak or absent goal-directed block transport",
+      "vlm_feedback_summary": "RR=4 \u6062\u590d\u4e86\u4e00\u6b21 success\uff0c\u4f46\u91c7\u6837\u753b\u9762\u4e2d\u76ee\u6807\u5bfc\u5411\u7684\u65b9\u5757\u642c\u8fd0\u4ecd\u7136\u8f83\u5f31\u6216\u7f3a\u5931",
       "vlm_failure_modes": [
-        "gripper reaches the object side of the table without useful displacement",
-        "block remains away from the goal in sampled rollouts",
-        "early critic and actor magnitude spikes suggest over-updating",
-        "fewer environment episodes under the fixed time budget likely reduce exploration"
+        "\u5939\u722a\u5230\u8fbe\u684c\u9762\u7269\u4f53\u4e00\u4fa7\u4f46\u7f3a\u4e4f\u6709\u6548\u4f4d\u79fb",
+        "\u91c7\u6837 rollout \u4e2d\u65b9\u5757\u4ecd\u8fdc\u79bb\u76ee\u6807",
+        "\u8bad\u7ec3\u65e9\u671f critic \u4e0e actor \u91cf\u7ea7\u51fa\u73b0\u5c16\u5cf0\uff0c\u63d0\u793a over-updating",
+        "\u5728\u56fa\u5b9a\u65f6\u95f4\u9884\u7b97\u4e0b\u73af\u5883 episode \u6570\u51cf\u5c11\uff0c\u53ef\u80fd\u964d\u4f4e\u4e86\u63a2\u7d22"
       ],
       "vlm_suggestions": [
-        "restore N_UPDATES=3",
-        "preserve the exp10 terminal and velocity rewards",
-        "add capped reward for reducing block-goal distance so block motion is goal-directed rather than arbitrary"
+        "\u6062\u590d N_UPDATES=3",
+        "\u4fdd\u7559 exp10 \u7684\u7ec8\u5c40\u5956\u52b1\u4e0e\u901f\u5ea6\u5956\u52b1",
+        "\u4e3a\u51cf\u5c0f block-goal \u8ddd\u79bb\u589e\u52a0\u5e26\u4e0a\u9650\u7684\u5956\u52b1\uff0c\u4f7f\u65b9\u5757\u8fd0\u52a8\u66f4\u5177\u76ee\u6807\u5bfc\u5411\u6027\u800c\u975e\u4efb\u610f\u65b9\u5411"
       ],
       "status": "discard",
       "hypothesis_confirmed": false,
-      "lesson_learned": "RR=4 with AT_GOAL_BONUS=20 is better than the confounded exp12 but still below the RR=3 best; the fixed wall-clock budget favors more environment diversity over a fourth update."
+      "lesson_learned": "AT_GOAL_BONUS=20 \u4e0b\u7684 RR=4 \u4f18\u4e8e\u6df7\u6dc6\u53d8\u91cf\u7684 exp12\uff0c\u4f46\u4ecd\u4f4e\u4e8e RR=3 \u7684\u6700\u4f73\u503c\uff1b\u5728\u56fa\u5b9a wall-clock \u9884\u7b97\u4e0b\uff0c\u66f4\u591a\u7684\u73af\u5883\u591a\u6837\u6027\u6bd4\u7b2c\u56db\u6b21\u66f4\u65b0\u66f4\u5212\u7b97\u3002"
     },
     {
       "id": 16,
       "commit": "ae0e2f0",
       "timestamp": "2026-05-03T21:01:07",
       "agent": "codex",
-      "description": "Added a capped bonus for reducing block-goal distance between consecutive steps while preserving exp10 rewards.",
-      "hypothesis": "Current velocity shaping rewards arbitrary block motion, while visual rollouts show weak or misdirected transport. A capped +5 bonus for reductions in block-goal distance should make pushes more goal-directed.",
+      "description": "\u5728\u4fdd\u7559 exp10 \u5956\u52b1\u7684\u540c\u65f6\uff0c\u4e3a\u76f8\u90bb\u4e24\u6b65\u4e4b\u95f4 block-goal \u8ddd\u79bb\u7684\u51cf\u5c0f\u65b0\u589e\u4e86\u5e26\u4e0a\u9650\u7684 bonus\u3002",
+      "hypothesis": "\u5f53\u524d\u7684\u901f\u5ea6 shaping \u4f1a\u5956\u52b1\u4efb\u610f\u65b9\u5411\u7684\u65b9\u5757\u8fd0\u52a8\uff0c\u800c\u89c6\u89c9 rollout \u663e\u793a\u642c\u8fd0\u8f83\u5f31\u6216\u65b9\u5411\u504f\u5dee\u3002\u5bf9 block-goal \u8ddd\u79bb\u7684\u4e0b\u964d\u7ed9\u4e88\u5e26\u4e0a\u9650\u7684 +5 bonus\uff0c\u5e94\u80fd\u8ba9\u63a8\u52a8\u66f4\u5177\u76ee\u6807\u5bfc\u5411\u6027\u3002",
       "changes_made": [
-        "Added GOAL_PROGRESS_COEF=100.0 and MAX_GOAL_PROGRESS_BONUS=5.0.",
-        "Computed positive progress as max(previous block-goal distance - current block-goal distance, 0).",
-        "Included the capped progress bonus in both online reward and HER reward recomputation."
+        "\u65b0\u589e GOAL_PROGRESS_COEF=100.0 \u548c MAX_GOAL_PROGRESS_BONUS=5.0\u3002",
+        "\u5c06\u6b63\u5411\u8fdb\u5ea6\u8ba1\u7b97\u4e3a max(\u4e0a\u4e00\u6b65 block-goal \u8ddd\u79bb - \u5f53\u524d block-goal \u8ddd\u79bb, 0)\u3002",
+        "\u5c06\u5e26\u4e0a\u9650\u7684\u8fdb\u5ea6 bonus \u540c\u65f6\u7eb3\u5165\u5728\u7ebf\u5956\u52b1\u548c HER \u5956\u52b1\u91cd\u8ba1\u7b97\u3002"
       ],
       "metrics": {
         "success_rate": 0.0,
@@ -170,32 +170,32 @@
         "total_updates": 232623,
         "peak_vram_mb": 28.97119140625
       },
-      "vlm_feedback_summary": "mean distance improves, but rollouts show near-misses and the block remains just outside the success threshold",
+      "vlm_feedback_summary": "\u5e73\u5747\u8ddd\u79bb\u6709\u6240\u6539\u5584\uff0c\u4f46 rollout \u663e\u793a\u63a5\u8fd1\u672a\u4e2d\uff0c\u65b9\u5757\u505c\u7559\u5728 success \u9608\u503c\u4e4b\u5916",
       "vlm_failure_modes": [
-        "near-goal states remain outside the 0.05 success threshold",
-        "gripper often moves away after getting close",
-        "object motion remains inconsistent",
-        "late critic loss spikes suggest noisier value targets"
+        "\u8fd1\u76ee\u6807\u72b6\u6001\u4ecd\u4f4d\u4e8e 0.05 \u7684 success \u9608\u503c\u4e4b\u5916",
+        "\u5939\u722a\u5728\u63a5\u8fd1\u540e\u5e38\u5e38\u53c8\u79fb\u5f00",
+        "\u7269\u4f53\u8fd0\u52a8\u4ecd\u4e0d\u4e00\u81f4",
+        "\u8bad\u7ec3\u540e\u671f critic loss \u51fa\u73b0\u5c16\u5cf0\uff0c\u63d0\u793a\u4ef7\u503c\u76ee\u6807\u66f4\u5608\u6742"
       ],
       "vlm_suggestions": [
-        "remove the goal-progress bonus",
-        "restore exp10 reward shaping",
-        "try a smoother local final-placement reward around the goal while preserving AT_GOAL_BONUS=20"
+        "\u79fb\u9664 goal-progress bonus",
+        "\u6062\u590d exp10 \u7684\u5956\u52b1 shaping",
+        "\u5728\u4fdd\u7559 AT_GOAL_BONUS=20 \u7684\u524d\u63d0\u4e0b\uff0c\u5c1d\u8bd5\u5728\u76ee\u6807\u5468\u56f4\u4f7f\u7528\u66f4\u5e73\u6ed1\u7684\u5c40\u90e8\u6700\u7ec8\u653e\u7f6e\u5956\u52b1"
       ],
       "status": "discard",
       "hypothesis_confirmed": false,
-      "lesson_learned": "Goal-progress shaping improves final distance but does not produce sparse successes; this task needs stronger local final-placement pressure rather than a temporal progress bonus alone."
+      "lesson_learned": "Goal-progress shaping \u6539\u5584\u4e86\u6700\u7ec8\u8ddd\u79bb\u4f46\u672a\u5e26\u6765\u7a00\u758f success\uff1b\u8fd9\u4e2a\u4efb\u52a1\u9700\u8981\u66f4\u5f3a\u7684\u5c40\u90e8\u6700\u7ec8\u653e\u7f6e\u538b\u529b\uff0c\u800c\u4e0d\u4ec5\u4ec5\u662f\u65f6\u5e8f\u8fdb\u5ea6 bonus\u3002"
     },
     {
       "id": 17,
       "commit": "3b9051a",
       "timestamp": "2026-05-03T21:33:44",
       "agent": "codex",
-      "description": "Added a smooth Gaussian local bonus around the block-goal target while preserving AT_GOAL_BONUS=20.",
-      "hypothesis": "Exp16 improved mean distance but left near-misses outside the 0.05 success threshold. A smooth Gaussian bonus around the goal should provide local placement pressure while the hard at-goal bonus remains the success incentive.",
+      "description": "\u5728\u4fdd\u7559 AT_GOAL_BONUS=20 \u7684\u540c\u65f6\uff0c\u56f4\u7ed5 block-goal \u76ee\u6807\u70b9\u65b0\u589e\u4e00\u4e2a\u5e73\u6ed1\u7684\u9ad8\u65af\u5c40\u90e8 bonus\u3002",
+      "hypothesis": "exp16 \u6539\u5584\u4e86\u5e73\u5747\u8ddd\u79bb\uff0c\u4f46\u63a5\u8fd1\u672a\u4e2d\u7684\u72b6\u6001\u4ecd\u4f4d\u4e8e 0.05 \u7684 success \u9608\u503c\u4e4b\u5916\u3002\u56f4\u7ed5\u76ee\u6807\u7684\u5e73\u6ed1\u9ad8\u65af bonus \u5e94\u80fd\u63d0\u4f9b\u5c40\u90e8\u653e\u7f6e\u538b\u529b\uff0c\u540c\u65f6\u7531\u786c\u6027\u7684 at-goal bonus \u7ee7\u7eed\u627f\u62c5 success \u6fc0\u52b1\u3002",
       "changes_made": [
-        "Added LOCAL_GOAL_BONUS=10.0 and LOCAL_GOAL_SIGMA=0.10.",
-        "Added LOCAL_GOAL_BONUS * exp(-(d_block_goal / LOCAL_GOAL_SIGMA)^2) to online and HER recomputed rewards."
+        "\u65b0\u589e LOCAL_GOAL_BONUS=10.0 \u548c LOCAL_GOAL_SIGMA=0.10\u3002",
+        "\u5728\u5728\u7ebf\u5956\u52b1\u548c HER \u91cd\u8ba1\u7b97\u5956\u52b1\u4e2d\u52a0\u5165 LOCAL_GOAL_BONUS * exp(-(d_block_goal / LOCAL_GOAL_SIGMA)^2)\u3002"
       ],
       "metrics": {
         "success_rate": 0.0,
@@ -206,21 +206,58 @@
         "total_updates": 248130,
         "peak_vram_mb": 28.97119140625
       },
-      "vlm_feedback_summary": "arm retracts or lifts away while the block stays stationary; smooth near-goal bonus destabilizes without improving contact",
+      "vlm_feedback_summary": "\u673a\u68b0\u81c2\u56de\u7f29\u6216\u62ac\u79bb\uff0c\u65b9\u5757\u4fdd\u6301\u9759\u6b62\uff1b\u8fd1\u76ee\u6807\u5904\u7684\u5e73\u6ed1 bonus \u9020\u6210\u4e0d\u7a33\u5b9a\uff0c\u4e14\u672a\u6539\u5584\u63a5\u89e6",
       "vlm_failure_modes": [
-        "arm retracts or lifts away from the object",
-        "block remains stationary in sampled rollouts",
-        "mean distance worsens substantially",
-        "critic loss stays high for much of training"
+        "\u673a\u68b0\u81c2\u4ece\u7269\u4f53\u5904\u56de\u7f29\u6216\u62ac\u79bb",
+        "\u91c7\u6837 rollout \u4e2d\u65b9\u5757\u4fdd\u6301\u9759\u6b62",
+        "\u5e73\u5747\u8ddd\u79bb\u660e\u663e\u6076\u5316",
+        "\u8bad\u7ec3\u5927\u90e8\u5206\u65f6\u95f4\u5185 critic loss \u7ef4\u6301\u5728\u8f83\u9ad8\u6c34\u5e73"
       ],
       "vlm_suggestions": [
-        "remove the Gaussian local-goal bonus",
-        "restore exp10 reward shaping",
-        "if increasing final-placement pressure, change the existing hard at-goal bonus rather than adding broad dense positive reward"
+        "\u79fb\u9664\u9ad8\u65af\u5c40\u90e8\u76ee\u6807 bonus",
+        "\u6062\u590d exp10 \u7684\u5956\u52b1 shaping",
+        "\u82e5\u8981\u52a0\u5f3a\u6700\u7ec8\u653e\u7f6e\u538b\u529b\uff0c\u5e94\u8c03\u6574\u5df2\u6709\u7684\u786c\u6027 at-goal bonus\uff0c\u800c\u4e0d\u662f\u65b0\u589e\u5bbd\u5e7f\u7684\u7a20\u5bc6\u6b63\u5411\u5956\u52b1"
       ],
       "status": "discard",
       "hypothesis_confirmed": false,
-      "lesson_learned": "A broad +10 Gaussian near-goal bonus is too large for the current shaped reward scale; it inflated value targets and regressed behavior to arm retraction without object movement."
+      "lesson_learned": "\u5728\u5f53\u524d shaped \u5956\u52b1\u91cf\u7ea7\u4e0b\uff0c\u5bbd\u5e7f\u7684 +10 \u9ad8\u65af\u8fd1\u76ee\u6807 bonus \u8fc7\u5927\uff1b\u5b83\u63a8\u9ad8\u4e86\u4ef7\u503c\u76ee\u6807\uff0c\u5e76\u4f7f\u884c\u4e3a\u9000\u5316\u4e3a\u673a\u68b0\u81c2\u56de\u7f29\u3001\u7269\u4f53\u4e0d\u52a8\u3002"
+    },
+    {
+      "id": 18,
+      "commit": "65db451",
+      "timestamp": "2026-05-03T22:06:57",
+      "agent": "codex",
+      "description": "External sparse-reward early-stop setup: N_UPDATES=1, 7200s ceiling, 5-episode spot evals, and no dense shaping.",
+      "hypothesis": "The new early-stop instrumentation may allow a sparse baseline to run longer only when useful, while stopping no-progress runs before the 2-hour ceiling.",
+      "changes_made": [
+        "Used code commit 65db451, which changed TIME_BUDGET to a 7200s ceiling.",
+        "Used sparse reward recomputation and N_UPDATES=1.",
+        "Used spot eval early stopping; run stopped after last three spot evals were all zero."
+      ],
+      "metrics": {
+        "success_rate": 0.2,
+        "mean_reward": -40.20000076293945,
+        "mean_distance": 0.21456678144948707,
+        "total_steps": 229962,
+        "total_episodes": 4599,
+        "total_updates": 228962,
+        "peak_vram_mb": 27.40087890625
+      },
+      "vlm_feedback_summary": "ties best scalar success at 0.20, but rendered rollouts still show weak or absent block transport",
+      "vlm_failure_modes": [
+        "successes are not visible in the three rendered rollouts",
+        "gripper often moves away after approach",
+        "block displacement remains weak and inconsistent",
+        "spot evals were unstable: 0.00, 0.00, 0.20, 0.00, 0.00, 0.00"
+      ],
+      "vlm_suggestions": [
+        "keep the early-stop infrastructure as promising",
+        "do not replace the existing best commit because success only tied 0.20",
+        "test exp10 shaping on top of the early-stop/long-ceiling infrastructure"
+      ],
+      "status": "keep",
+      "hypothesis_confirmed": true,
+      "lesson_learned": "Sparse training with long-ceiling early stop can tie the best success rate and improve mean reward, but visual behavior is not yet robust; the infrastructure is promising but not a new best by success rate."
     }
   ],
   "insights": [
@@ -230,7 +267,8 @@
     "Near-block close-command shaping did not improve success; contact acquisition alone is insufficient without better goal-directed transport.",
     "N_UPDATES=4 with AT_GOAL_BONUS=20 recovers 0.10 success but remains below N_UPDATES=3, suggesting RR=3 is the better wall-clock tradeoff.",
     "Goal-progress shaping improved mean distance to 0.255 but yielded 0.0 success, indicating near-miss behavior without final placement.",
-    "A broad +10 Gaussian local-goal bonus destabilized value learning and worsened mean distance to 0.376."
+    "A broad +10 Gaussian local-goal bonus destabilized value learning and worsened mean distance to 0.376.",
+    "Sparse N_UPDATES=1 with long-ceiling early-stop instrumentation tied the 0.20 best success rate, but visual rollouts still lacked robust transport."
   ],
   "failed_directions": [
     "AT_GOAL_BONUS 20 -> 5 while using N_UPDATES=4: regressed success_rate to 0.10 and produced approach/hover behavior rather than reliable transport.",
@@ -243,6 +281,7 @@
   "promising_directions": [
     "Restore exp10 settings, then address jerkiness with a smoother local final-placement reward instead of lowering the flat at-goal bonus.",
     "Ablate N_UPDATES=4 separately against N_UPDATES=3 only after returning the at-goal bonus to the metric-best value.",
-    "Preserve the exp10 transport rewards and add more selective contact-acquisition shaping rather than weakening terminal or velocity transport incentives."
+    "Preserve the exp10 transport rewards and add more selective contact-acquisition shaping rather than weakening terminal or velocity transport incentives.",
+    "Combine the new early-stop/long-ceiling infrastructure with the exp10 dense shaping recipe."
   ]
 }

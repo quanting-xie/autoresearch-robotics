@@ -141,3 +141,27 @@ Visible failure modes:
 
 Next suggestion:
 - Remove the local Gaussian bonus and restore exp10 shaping. If increasing final-placement pressure, prefer a narrower change to the existing hard at-goal bonus rather than adding broad positive dense reward.
+
+Exp 18 visual analysis (code commit 65db451)
+
+Quantitative result: eval_success_rate 0.200000, eval_mean_reward -40.200001, eval_mean_distance 0.214567. This ties the existing best success rate of 0.200000 and slightly improves mean reward over exp10, but does not beat the best success metric.
+
+Observed behavior:
+- Episode 0: the gripper reaches down to the block and stays in contact or near-contact, but the block is not moved to the red goal marker.
+- Episode 1: the gripper initially approaches near the object, then swings far away from the table by the end while the block stays put.
+- Episode 2: the gripper reaches the object side of the table and may brush the block, but the object remains off target.
+
+Comparison to previous best:
+- The scalar success rate ties exp10. The run used the newer sparse-reward/early-stop setup with N_UPDATES=1, 2-hour ceiling, and spot-eval stopping, and stopped early after no-progress despite one spot eval reaching 0.20. Visuals are not qualitatively better than exp10.
+
+Hypothesis assessment:
+- This external early-stop/sparse setup is viable enough to tie the best success rate, but the visual behavior still lacks robust goal-directed transport. Because success did not exceed 0.20, the existing best commit should remain unchanged.
+
+Visible failure modes:
+- Successes are not visible in the three rendered rollouts.
+- The gripper still often moves away after approach.
+- Block displacement remains weak and inconsistent.
+- Spot evals were unstable: 0.00, 0.00, 0.20, 0.00, 0.00, 0.00.
+
+Next suggestion:
+- Treat the sparse early-stop setup as promising infrastructure, but do not replace the best metric anchor yet. A useful next test would reintroduce the proven exp10 shaping terms on top of the early-stop/long-ceiling infrastructure, then compare whether spot-eval stability improves.

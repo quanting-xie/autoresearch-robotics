@@ -87,6 +87,8 @@ WARMUP_STEPS = 0                # steps with random actions after learning start
 #     between consecutive steps. Exp 6 showed this finally caused the
 #     gripper to engage the block (mean_reward escaped the -50 floor for
 #     the first time).
+#   - LOCAL_GOAL_BONUS: smooth bonus around the target that gives gradient for
+#     near-misses while preserving the hard AT_GOAL_BONUS success incentive.
 #   - AT_GOAL_BONUS: +20 when |block - goal| < 0.05. Twice MAX_VEL_BONUS so
 #     the agent strictly prefers "block at goal stationary" over "block in
 #     motion". Solves the exp 6 "agent keeps the block moving instead of
@@ -95,6 +97,8 @@ SHAPING_GRIP_COEF = 1.0
 SHAPING_GOAL_COEF = 5.0
 SHAPING_VEL_COEF = 100.0
 MAX_VEL_BONUS = 10.0
+LOCAL_GOAL_BONUS = 10.0
+LOCAL_GOAL_SIGMA = 0.10
 AT_GOAL_BONUS = 20.0
 AT_GOAL_THRESHOLD = 0.05
 
@@ -306,11 +310,15 @@ class ReplayBuffer:
         d_grip_block = np.linalg.norm(grip_pos - next_achieved_goal, axis=-1).astype(np.float32)
         block_delta = np.linalg.norm(next_achieved_goal - achieved_goal, axis=-1).astype(np.float32)
         vel_bonus = np.minimum(SHAPING_VEL_COEF * block_delta, MAX_VEL_BONUS).astype(np.float32)
+        local_goal_bonus = (
+            LOCAL_GOAL_BONUS * np.exp(-np.square(d_block_goal / LOCAL_GOAL_SIGMA))
+        ).astype(np.float32)
         at_goal_bonus = (d_block_goal < AT_GOAL_THRESHOLD).astype(np.float32) * AT_GOAL_BONUS
         return (sparse
                 - SHAPING_GRIP_COEF * d_grip_block
                 - SHAPING_GOAL_COEF * d_block_goal.astype(np.float32)
                 + vel_bonus
+                + local_goal_bonus
                 + at_goal_bonus)
 
     def sample(self, batch_size, device, obs_normalizer=None,
@@ -630,11 +638,13 @@ while True:
     d_block_goal = float(np.linalg.norm(block_pos - goal_pos))
     block_delta = float(np.linalg.norm(block_pos - block_pos_before))
     vel_bonus = min(SHAPING_VEL_COEF * block_delta, MAX_VEL_BONUS)
+    local_goal_bonus = LOCAL_GOAL_BONUS * np.exp(-((d_block_goal / LOCAL_GOAL_SIGMA) ** 2))
     at_goal_bonus = AT_GOAL_BONUS if d_block_goal < AT_GOAL_THRESHOLD else 0.0
     reward = (float(env_reward)
               - SHAPING_GRIP_COEF * d_grip_block
               - SHAPING_GOAL_COEF * d_block_goal
               + vel_bonus
+              + local_goal_bonus
               + at_goal_bonus)
     episode_step += 1
     episode_reward += reward

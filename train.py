@@ -61,7 +61,7 @@ LR_CRITIC = 3e-4            # critic learning rate
 GAMMA = 0.98                # discount factor
 TAU = 0.005                 # soft target update rate
 INIT_ALPHA = 0.2            # initial entropy coefficient
-AUTO_ALPHA = True           # automatic entropy tuning
+AUTO_ALPHA = False          # disabled: pinning alpha decouples it from reward magnitude
 LR_ALPHA = 3e-4             # alpha learning rate (if AUTO_ALPHA)
 
 # Replay buffer
@@ -277,9 +277,15 @@ class ReplayBuffer:
             self._current_episode_start = self.ptr
 
     def _compute_reward(self, achieved_goal, desired_goal):
-        """Sparse reward: -1 if not at goal, 0 if at goal (distance < 0.05)."""
+        """Dense training reward: negative L2 distance to goal.
+
+        Eval still uses the env's sparse reward (evaluate.py is read-only),
+        so success_rate is unchanged. Dense form gives gradient even when
+        the cube barely moves, which is required for HER to bootstrap the
+        manipulation signal under fixed alpha exploration.
+        """
         d = np.linalg.norm(achieved_goal - desired_goal, axis=-1)
-        return -(d > 0.05).astype(np.float32)
+        return (-d).astype(np.float32)
 
     def sample(self, batch_size, device, obs_normalizer=None,
                use_her=USE_HER, her_k=HER_K):
@@ -590,11 +596,16 @@ while True:
     flat_obs_for_norm = flatten_obs(obs)
     obs_normalizer.update(flat_obs_for_norm)
 
+    # Dense training reward (eval reward is sparse via evaluate.py, unchanged)
+    shaped_reward = -float(np.linalg.norm(
+        next_obs["achieved_goal"] - obs["desired_goal"]
+    ))
+
     # Store transition
     buffer.add(
         obs=obs["observation"],
         action=action,
-        reward=reward,
+        reward=shaped_reward,
         next_obs=next_obs["observation"],
         done=float(done),
         achieved_goal=obs["achieved_goal"],

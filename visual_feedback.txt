@@ -69,3 +69,27 @@ Visible failure modes:
 
 Next suggestion:
 - Discard the contact-close bonus and restore exp10 reward shaping. The next clean test should isolate N_UPDATES=4 with AT_GOAL_BONUS=20, because exp12 confounded higher replay ratio with a weakened terminal bonus.
+
+Exp 15 visual analysis (commit 7772d58)
+
+Quantitative result: eval_success_rate 0.100000, eval_mean_reward -45.000000, eval_mean_distance 0.267965. This partially recovers success relative to exp13/14 but remains below the exp10 best of 0.200000.
+
+Observed behavior:
+- Episode 0: the gripper moves to the table edge near the block and goal marker but does not push the block to the target.
+- Episode 1: the gripper approaches the side of the block/table and then stays low beside the table; the block remains on the table away from the goal.
+- Episode 2: the arm moves back toward the robot base while the block and goal remain on the table with little visible progress.
+
+Comparison to previous best:
+- No renders_best directory is available. Relative to exp10 in results.tsv, RR=4 uses fewer environment interactions in the fixed time budget and does not match the 0.20 success rate.
+
+Hypothesis assessment:
+- The hypothesis that N_UPDATES=4 would improve value fitting when AT_GOAL_BONUS stays at 20 was not confirmed. It recovered one success, showing exp12 was partly confounded by the low at-goal bonus, but the higher replay ratio still underperformed RR=3.
+
+Visible failure modes:
+- Goal-directed transport remains weak.
+- The gripper often reaches the object side of the table without producing useful displacement.
+- Training showed early critic/actor magnitude spikes around 12k-18k steps.
+- Fewer environment episodes under RR=4 likely reduce useful exploration within the 30 minute budget.
+
+Next suggestion:
+- Restore N_UPDATES=3 and preserve the exp10 reward anchor. Instead of rewarding arbitrary block displacement alone, add a capped positive bonus for reducing block-goal distance between consecutive steps so pushes are directed toward the target.

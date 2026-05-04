@@ -1,7 +1,7 @@
 {
   "best_commit": "6b5cfd7",
   "best_success_rate": 0.2,
-  "total_experiments": 14,
+  "total_experiments": 15,
   "experiments": [
     {
       "id": 12,
@@ -112,18 +112,56 @@
       "status": "discard",
       "hypothesis_confirmed": false,
       "lesson_learned": "A small near-block close-command bonus did not improve sparse success; the bottleneck is goal-directed transport after approach/contact, not just issuing the close action."
+    },
+    {
+      "id": 15,
+      "commit": "7772d58",
+      "timestamp": "2026-05-03T20:28:44",
+      "agent": "codex",
+      "description": "Isolated N_UPDATES=4 while keeping exp10's AT_GOAL_BONUS=20 and transport reward shaping.",
+      "hypothesis": "Exp12's failure confounded RR=4 with reducing AT_GOAL_BONUS to 5. Keeping the exp10 reward anchor and increasing only replay ratio may improve value fitting without weakening final-placement incentive.",
+      "changes_made": [
+        "Changed N_UPDATES from 3 to 4.",
+        "Kept SHAPING_GRIP_COEF, SHAPING_GOAL_COEF, SHAPING_VEL_COEF, MAX_VEL_BONUS, and AT_GOAL_BONUS unchanged from exp10."
+      ],
+      "metrics": {
+        "success_rate": 0.1,
+        "mean_reward": -45.0,
+        "mean_distance": 0.2679649566930502,
+        "total_steps": 55128,
+        "total_episodes": 1102,
+        "total_updates": 216512,
+        "peak_vram_mb": 28.97119140625
+      },
+      "vlm_feedback_summary": "RR=4 recovers one success but sampled frames still show weak or absent goal-directed block transport",
+      "vlm_failure_modes": [
+        "gripper reaches the object side of the table without useful displacement",
+        "block remains away from the goal in sampled rollouts",
+        "early critic and actor magnitude spikes suggest over-updating",
+        "fewer environment episodes under the fixed time budget likely reduce exploration"
+      ],
+      "vlm_suggestions": [
+        "restore N_UPDATES=3",
+        "preserve the exp10 terminal and velocity rewards",
+        "add capped reward for reducing block-goal distance so block motion is goal-directed rather than arbitrary"
+      ],
+      "status": "discard",
+      "hypothesis_confirmed": false,
+      "lesson_learned": "RR=4 with AT_GOAL_BONUS=20 is better than the confounded exp12 but still below the RR=3 best; the fixed wall-clock budget favors more environment diversity over a fourth update."
     }
   ],
   "insights": [
     "Existing results.tsv shows the best run is exp10 commit 6b5cfd7 with success_rate 0.20 using N_UPDATES=3.",
     "AT_GOAL_BONUS=20 appears load-bearing for sparse eval success; reducing it to 5 lowered success_rate to 0.10.",
     "The block velocity bonus also appears load-bearing; damping it near the goal lowered success_rate to 0.0 and removed visible transport behavior.",
-    "Near-block close-command shaping did not improve success; contact acquisition alone is insufficient without better goal-directed transport."
+    "Near-block close-command shaping did not improve success; contact acquisition alone is insufficient without better goal-directed transport.",
+    "N_UPDATES=4 with AT_GOAL_BONUS=20 recovers 0.10 success but remains below N_UPDATES=3, suggesting RR=3 is the better wall-clock tradeoff."
   ],
   "failed_directions": [
     "AT_GOAL_BONUS 20 -> 5 while using N_UPDATES=4: regressed success_rate to 0.10 and produced approach/hover behavior rather than reliable transport.",
     "Velocity bonus damping inside 10 cm of the goal: regressed success_rate to 0.0 and produced stationary-object rollouts.",
-    "Close-command bonus gated within 6 cm of the block: regressed success_rate to 0.0 and caused weak or misdirected contact without transport."
+    "Close-command bonus gated within 6 cm of the block: regressed success_rate to 0.0 and caused weak or misdirected contact without transport.",
+    "N_UPDATES 3 -> 4 with AT_GOAL_BONUS=20: recovered only 0.10 success and showed early loss spikes plus weak transport."
   ],
   "promising_directions": [
     "Restore exp10 settings, then address jerkiness with a smoother local final-placement reward instead of lowering the flat at-goal bonus.",

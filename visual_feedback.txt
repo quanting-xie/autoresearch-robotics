@@ -1,89 +1,86 @@
-实验 7 — 三合一组合(gripper-close warmup + 固定 alpha=0.2 + dense reward)
-==========================================================================
+实验 8 — 多分量 dense reward(-||cube-goal|| - λ*||grip-cube||,λ=1.0)
+======================================================================
 eval_success_rate: 0.00(劣于基线 0.10)
-mean_reward: -50.0   |   mean_distance: 0.220
+mean_reward: -50.0   |   mean_distance: 0.246(差于基线 0.214)
 training_seconds: 900(被早停 — 仅基线时间的一半)
-total_steps: 111,638(基线 279K)
+total_steps: 119,997   |   total_episodes: 2399
 spot_eval_history: [0.00, 0.00, 0.00] — 三连零,触发 no-progress 早停
 status: discard
 
 帧分析
 ------
-- ep0(目标在空中):夹爪居中下降到方块附近,在方块上方悬停。从 start→
-  mid→end,夹爪离方块越来越近但方块从不移动,从不被夹起。这是空中目标,
-  必须 pick + place 才能成功 — 完全失败。
-- ep1(目标在桌面,紧挨方块):应该是 reach-only 容易题(基线 10% 来自这种
-  episode)。但帧上看夹爪移动到方块右侧但偏高,不在方块顶上。reach 没到位,
-  导致连基线水平的 reach 都没学好。
-- ep2(目标在桌面,紧挨方块):同上,夹爪定位比 ep1 略好但仍偏离方块。
+- ep0(目标在桌面,与 cube 距离约 0.2m):夹爪从顶部下降,end 帧落在 cube
+  右侧偏移位置。cube 没动。reach 只到了 cube 区域,精度不够。
+- ep1(目标在桌面紧挨 cube):mid 帧 gripper 直接悬停在目标/cube 区域上方。
+  end 帧 gripper 刚好对准目标位置但 cube 不在那里(被推开?或在 gripper 下
+  方被遮挡)。
+- ep2(目标在桌面紧挨 cube):end 帧 gripper 在 cube/goal 区域附近,但 cube
+  位置离 goal 还有偏移。
 
-为什么 *组合* 比每个单变量都差
--------------------------------
-对比:
-- 实验 5(dense + 固定 alpha,STEPS_BEFORE_LEARNING=1000)→ 0.10 ≈ 基线
-- 实验 6(gripper-close warmup,STEPS_BEFORE_LEARNING=5000,sparse + auto alpha)→ 0.10
-- 实验 7(三合一)→ 0.00,且被早停
+实验 8 的关键失败模式
+---------------------
+**reward shaping 没有突破基线,反而劣化**:
+- 多分量 reward 让 gripper 学到了"去 cube 区域"(reach 部分有明显改进迹象)
+- 但 *没* 学到"抓+抬"
+- 而且新的 reach 行为反而破坏了基线那 10% 简单 episode 的成功率 — 因为
+  baseline 不动 cube,这些'goal 落 cube_init 附近'的 episode 自动成功;
+  exp 8 主动靠近 cube,偶尔把 cube 推开,反而把这种简单题搞砸
 
-新发现的根本问题:**dense reward = -||achieved_goal - desired_goal|| 在 episode 内
-是常数,因为方块在 episode 内不移动。** achieved_goal 就是方块位置 — 方块不动,
-则一个 episode 内每一步的 reward 都是 -||cube_init - goal||,完全没梯度。
+eval mean_distance 0.246 vs 基线 0.214 = 略差。说明 cube 不仅没向 goal 移动,
+还可能被推到错误方向。
 
-这意味着:
-- 对 critic:整个 episode 的 Q 目标几乎相等(γ 折扣下也只是 r * (1-γ^T)/(1-γ)),
-  没有 state/action 区分能力
-- 对 actor:reward 与 action 解耦,policy 收不到任何"哪个动作更好"的信号
-- 跨 episode reward 当然有变化(初始 cube 位置和 goal 位置不同),但单 episode
-  没有动作依赖的梯度
+为什么 reward shaping 不能打破 0.10
+-----------------------------------
+我以为 grip-cube 项能给 reach 一个梯度,然后 reach 一旦学好,gripper 就会
+"碰巧" 把 cube 撞到 goal。但实际 evaluator 显示:gripper 成功 reach 后,
+后续动作没有协调"抓+抬"序列 — 因为 SAC 的 i.i.d. 高斯探索在每一步独立
+采样,无法在 50 步 episode 内产生连贯的"下降 + 闭合 + 上抬"子序列。
 
-实验 5 的 0.10 来自基线 reach 行为的"幸存"。实验 6 同样。实验 7 把 warmup 加进来,
-后续 dense reward 训练阶段没有学到任何新东西,reach 行为本身也没被加强 — 因为
-reach 不会让 cube 移动,所以 dense reward 没有 reach gradient。
+每步动作随机性:σ ≈ 0.2(由 alpha 控制)。3 个连续步骤都恰好是"下 + 闭
++ 上"的概率非常低。HER 只能从 buffer 里有的转移学习 — 如果 buffer 里
+没有"cube 被抬起"的转移,HER 也学不到 manipulation。
 
-为什么实验 7 比实验 5 更差(0.00 vs 0.10):
-- 5K 步 warmup 的 random action(且 gripper 强制闭合)给 buffer 喂了 5K 条
-  无效转移(action 随机,reward 平坦)。
-- 学习开始后 6K 步 deterministic policy 也只能在平坦 reward 下乱走。
-- 没有 reach gradient,policy 收敛到一个"高悬"或"侧偏"的低水平局部解,连
-  reach 都没学好 → 桌面 goal episode 也失败 → 总成功率为 0。
+实验 1-8 累积结论(再强化)
+----------------------------
+- 优化质量(LN)— 不是瓶颈
+- 探索量(target_entropy 调高、固定 alpha)— 不是瓶颈
+- 信号形状(dense reward,多分量 dense)— 不是瓶颈
+- warmup 数据偏置(gripper-close)— 不足以单独突破
 
-实验 1-7 累积结论
------------------
-单杠杆失败 + 三合一仍失败,根本问题在 reward 信号的*结构*:
-- 稀疏 reward + HER:HER 重标注让所有未移动 cube 的 episode 看起来"成功"
-  (relabeled goal = future achieved_goal = cube 起点),但这教 policy 的是
-  "维持现状",非常弱的信号。基线 0.10 来自评估时 ~10% 的 goal 离 cube 起点
-  足够近的 episode(reach 即可)。
-- dense reward = -||cube - goal||:cube 不动 ⇒ 单 episode 内梯度为零。
-  跨 episode 的 reward 差异不能被 SAC 利用,因为 critic 学的是 Q(s,a),
-  不是平均 episode reward。
+剩下未试的、文献支持的方向是:**探索的*时间结构*** — i.i.d. 高斯噪声
+变成时间相关噪声(OU)。这是 DDPG 原论文(Lillicrap 2015)和 HER FetchPick
+论文(Andrychowicz 2017)的标准配方,正是因为这种连续控制 + sparse reward +
+50 步 episode 的任务族,i.i.d. 噪声不够。
 
-要修复这个,**必须让 reward 在 episode 内对 action 有非零梯度**。最直接的
-方案是把 *gripper 位置* 也纳入 reward 的依赖,因为 gripper 位置在 action
-之下立即变化:
+实验 9 计划:OU 时间相关探索噪声
+--------------------------------
+回到基线(sparse reward + auto-alpha + STEPS_BEFORE_LEARNING=1000),
+**仅添加 OU 噪声**到 action 选择上。
 
-  shaped_reward = -||cube - goal|| - λ * ||grip - cube||
+OU 实现:
+  ξ_{t+1} = ξ_t + θ*(μ - ξ_t) + σ*N(0,1)
+  θ=0.15, σ=0.2, μ=0
+  在 SAC 采样的 action 上叠加,clip 到 [-1, 1]
+  episode 结束时 reset ξ=0
+  eval 时不加 OU(用 deterministic mean,evaluate.py 已经如此)
 
-第二项给 policy 一个明确的 reach gradient,且 action 立即影响。第一项继续
-驱动 manipulation。组合后:
-- 即使 cube 不动,gripper 也学会贴近 cube(因为第二项)
-- 一旦 gripper 贴近 cube,随机扰动 + 闭合夹爪偶尔能撞动 cube → 第一项触发
-- HER 的 future relabeling 也仍然有效
+OU 时间相关时长 = 1/θ ≈ 7 步,意味着噪声在 ~7 步内保持同向。这在 50 步
+episode 内会产生 ~7 个独立的"动作意图段",每段持续约 7 步 → 有机会出现
+连贯的"下降 + 闭合"或"上抬"子序列。
 
-实验 8 计划
------------
-**多分量 dense reward**:在实验 7 基础上,把 reward 改成:
-  shaped = -||next_achieved_goal - desired_goal|| - 1.0 * ||next_grip - next_achieved_goal||
+预期:0.10 → 0.15-0.30。critic_loss / alpha 等训练曲线应当稳定。
 
-其余保持实验 7 设置(固定 alpha=0.2,gripper-close warmup,但 STEPS_BEFORE_LEARNING
-回退到 1000 — 较少的 warmup,因为 warmup 的目的是"种 manipulation 数据",
-而新的 reward 已经能直接驱动 reach,warmup 不再那么关键)。
+风险:
+- σ=0.2 可能太小,无法克服 cube 的静摩擦。Lillicrap 论文用 σ=0.2 with
+  scale-1 actions,通常足够;但如果 SAC 已有 alpha=0.2 的高斯噪声,叠加后
+  可能噪声过大 → 训练退化。先试 σ=0.2,若 spot-eval 差再调
+- OU + i.i.d Gaussian 叠加:本质上是 SAC 的 i.i.d. 探索 + OU 时间相关
+  扰动。如果想纯净测试 OU 影响,可以用 deterministic SAC + 纯 OU(类
+  TD3)。先试叠加方案,出了问题再切换
 
-预期:成功率 0.20-0.40。reach 立即可学,manipulation 经由 HER + 偶然 cube
-扰动逐步出现。
+后续(若实验 9 突破):
+- 实验 10:OU + 多分量 dense reward(组合赢家)
+- 实验 11:OU 噪声参数调整(σ 扫描)
 
-风险:λ 过大 → policy 收敛到"贴 cube 但不动"的局部解。先试 λ=1.0,若
-0.20 内崩到 0.00 用 λ=0.5 重试。
-
-把 STEPS_BEFORE_LEARNING 从 5000 回退到 1000 是为了让训练更早进入 dense reward
-驱动的阶段,避免 warmup 数据过多冲淡。也回退 GRIPPER_CLOSE_DURING_WARMUP 标志
-但不删除(以防之后想再开)。
+后续(若实验 9 仍 ≤ 0.10):
+- 实验 10:换 TD3(deterministic policy + 持久 action noise) — 底牌方案

@@ -62,14 +62,8 @@ LR_CRITIC = 3e-4            # critic learning rate
 GAMMA = 0.98                # discount factor
 TAU = 0.005                 # soft target update rate
 INIT_ALPHA = 0.2            # initial entropy coefficient
-AUTO_ALPHA = False          # exp 8: pin alpha to keep exploration alive (decouple from reward magnitude)
+AUTO_ALPHA = True           # automatic entropy tuning
 LR_ALPHA = 3e-4             # alpha learning rate (if AUTO_ALPHA)
-
-# Reward shaping (exp 8). Training reward is multi-component dense — eval is
-# untouched (sparse, via evaluate.py). Cube-goal term drives manipulation;
-# grip-cube term gives reach an immediate action-dependent gradient even
-# when the cube doesn't move (the failure mode that broke exp 5 / exp 7).
-DENSE_GRIP_LAMBDA = 1.0     # weight on -||grip - cube|| term
 
 # Replay buffer
 BATCH_SIZE = 256            # minibatch size for updates
@@ -283,22 +277,10 @@ class ReplayBuffer:
             self._current_episode_id += 1
             self._current_episode_start = self.ptr
 
-    def _compute_reward(self, achieved_goal, desired_goal, grip_pos):
-        """Multi-component dense training reward (exp 8).
-
-        r = -||achieved - desired|| - λ * ||grip - achieved||
-
-        First term: cube → goal (drives manipulation; zero gradient when cube
-        doesn't move, but HER relabel makes this part useful).
-        Second term: gripper → cube (immediate action-dependent gradient even
-        when cube doesn't move, fixing the exp-5/7 failure mode).
-
-        Eval still uses env's sparse reward via evaluate.py — success_rate is
-        unchanged.
-        """
-        cube_goal = np.linalg.norm(achieved_goal - desired_goal, axis=-1)
-        grip_cube = np.linalg.norm(grip_pos - achieved_goal, axis=-1)
-        return (-cube_goal - DENSE_GRIP_LAMBDA * grip_cube).astype(np.float32)
+    def _compute_reward(self, achieved_goal, desired_goal):
+        """Sparse reward: -1 if not at goal, 0 if at goal (distance < 0.05)."""
+        d = np.linalg.norm(achieved_goal - desired_goal, axis=-1)
+        return -(d > 0.05).astype(np.float32)
 
     def sample(self, batch_size, device, obs_normalizer=None,
                use_her=USE_HER, her_k=HER_K):
@@ -359,11 +341,9 @@ class ReplayBuffer:
                 new_goal = self.achieved_goals[future_idx]
                 desired_goals[i] = new_goal
 
-                # Recompute reward with new goal. Grip position (next-step)
-                # is the first 3 dims of the stored next_observation.
+                # Recompute reward with new goal
                 next_ag = self.next_achieved_goals[idx]
-                next_grip = self.next_observations[idx, :3]
-                rewards[i] = self._compute_reward(next_ag, new_goal, next_grip)
+                rewards[i] = self._compute_reward(next_ag, new_goal)
 
                 # Recompute done (success = distance < 0.05)
                 dones[i] = float(
@@ -619,19 +599,11 @@ while True:
     flat_obs_for_norm = flatten_obs(obs)
     obs_normalizer.update(flat_obs_for_norm)
 
-    # Multi-component dense training reward (exp 8). Eval reward is sparse
-    # via evaluate.py, unchanged.
-    next_grip = next_obs["observation"][:3]
-    next_ag = next_obs["achieved_goal"]
-    cube_goal_dist = float(np.linalg.norm(next_ag - obs["desired_goal"]))
-    grip_cube_dist = float(np.linalg.norm(next_grip - next_ag))
-    shaped_reward = -cube_goal_dist - DENSE_GRIP_LAMBDA * grip_cube_dist
-
     # Store transition
     buffer.add(
         obs=obs["observation"],
         action=action,
-        reward=shaped_reward,
+        reward=reward,
         next_obs=next_obs["observation"],
         done=float(done),
         achieved_goal=obs["achieved_goal"],

@@ -77,7 +77,7 @@ HER_STRATEGY = "future"     # "future" or "final"
 # Training schedule
 STEPS_BEFORE_LEARNING = 1000    # random exploration steps before learning
 UPDATE_EVERY = 1                # gradient steps per env step
-N_UPDATES = 2                   # number of gradient updates per update cycle (exp6: was 1; UTD=2 to refine the last-few-cm precision left in exp5)
+N_UPDATES = 1                   # number of gradient updates per update cycle
 WARMUP_STEPS = 0                # steps with random actions after learning starts
 
 # ---------------------------------------------------------------------------

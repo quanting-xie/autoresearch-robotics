@@ -1,7 +1,7 @@
 {
   "best_commit": "9630464",
   "best_success_rate": 0.5,
-  "total_experiments": 5,
+  "total_experiments": 6,
   "experiments": [
     {
       "id": 1,
@@ -166,9 +166,9 @@
         "total_updates": 1097,
         "peak_vram_mb": 27.14990234375
       },
-      "vlm_feedback_summary": "FIRST GOAL-TRACKING BEHAVIOR. Across all 3 rendered episodes the gripper descends to and lands precisely on the red goal dot. mean_distance 0.046 (13x better than baseline 0.61), success_rate 0.50 (5/10). Failures are JUST above the 5cm threshold — policy reaches the right region but doesn't perfectly fine-tune the last few cm.",
+      "vlm_feedback_summary": "FIRST GOAL-TRACKING BEHAVIOR. Across all 3 rendered episodes the gripper descends to and lands precisely on the red goal dot. mean_distance 0.046 (13x better than baseline 0.61), success_rate 0.50 (5/10). Failures are JUST above the 5cm threshold \u2014 policy reaches the right region but doesn't perfectly fine-tune the last few cm.",
       "vlm_failure_modes": [
-        "5/10 episodes fall just above the 5cm success threshold — fine-tuning precision missing",
+        "5/10 episodes fall just above the 5cm success threshold \u2014 fine-tuning precision missing",
         "no obvious systematic visual failure remaining"
       ],
       "vlm_suggestions": [
@@ -180,6 +180,40 @@
       "status": "keep",
       "hypothesis_confirmed": true,
       "lesson_learned": "Default SAC auto_alpha=True with log_alpha=0 init starts at alpha=exp(0)=1.0, making entropy regularization dominate the Q term in actor_loss for the first 1-2k updates. This is fatal on a 10s budget where total updates is capped at ~1100. Pinning alpha low (0.05) AND giving Q a dense direction signal lets the actor converge to a working goal-tracking policy in ~1100 updates. Both ingredients were needed (each tried alone in earlier experiments produced 0% success). Bonus: total_updates went from 853 to 1097 (+29%) because skipping the alpha gradient step + having lower-entropy action sampling makes each iteration faster."
+    },
+    {
+      "id": 6,
+      "commit": "f307953",
+      "timestamp": "2026-05-03T21:58:01",
+      "agent": "opus-4.7",
+      "description": "On exp5 working config (low fixed alpha + dense reward), bump UTD: N_UPDATES 1 -> 2.",
+      "hypothesis": "Exp5 hit 50% with mean_distance 0.046 — the misses are JUST above the 5cm threshold. Doubling grad steps per env step should give the actor more refinement passes within the 10s budget, pushing success_rate to 0.7+.",
+      "changes_made": [
+        "N_UPDATES: 1 -> 2"
+      ],
+      "metrics": {
+        "success_rate": 0.3,
+        "mean_reward": -31.600000381469727,
+        "mean_distance": 0.05672038910823622,
+        "total_steps": 1808,
+        "total_episodes": 36,
+        "total_updates": 1616,
+        "peak_vram_mb": 27.14990234375
+      },
+      "vlm_feedback_summary": "Policy still goal-tracking but precision regressed: gripper hovers slightly above goal (ep1), overshoots slightly (ep2), hits cleanly only in ep0. mean_distance 0.057 sits just above the 5cm threshold. UTD=2 boosted total_updates 1097 -> 1616 (+47%) but the extra updates pushed actor over a slightly-biased Q at the goal boundary.",
+      "vlm_failure_modes": [
+        "small over/under-shooting around goal",
+        "actor over-committed to Q gradient with bias near success boundary"
+      ],
+      "vlm_suggestions": [
+        "Discard UTD=2; bottleneck is no longer 'too few updates' but update QUALITY at goal boundary.",
+        "Try LR_ACTOR 3e-4 -> 1e-3: faster actor convergence within ~1100 updates without Q-bias risk.",
+        "Or n-step returns (n=3) for stronger value targets.",
+        "Or REDQ-style critic ensemble + dropout to safely re-enable UTD>1."
+      ],
+      "status": "discard",
+      "hypothesis_confirmed": false,
+      "lesson_learned": "On the working exp5 config, more grad updates per env step is NOT strictly better. UTD=2 raised total_updates 47% but dropped success_rate 0.50 -> 0.30. At ~1100 updates the policy already converges to goal-tracking; extra updates over-commit the actor to Q-network biases (no ensemble = no bias correction). To push past 0.50, attack update QUALITY (faster actor LR, n-step returns, ensemble) not quantity."
     }
   ],
   "insights": [
@@ -195,10 +229,13 @@
     "Smaller net (128x2) + smaller batch (128) (exp4): only +9% updates, 0% success_rate. GPU FLOPs are not the bottleneck; Python overhead in per-step loop is. Architectural shrinking is a dead end here."
   ],
   "promising_directions": [
-    "N_UPDATES 1 -> 2 (UTD=2): compound the working config. Doubles grad steps per env step. Predict success_rate climbs from 0.5 toward 0.7-0.9.",
-    "LR_ACTOR bump 3e-4 -> 1e-3: actor LR now safe to push since alpha is fixed and Q is clean.",
-    "n-step returns (n=3) on critic: stronger value targets given dense reward.",
-    "LayerNorm in actor/critic trunk: cheap stability boost.",
-    "Ablate exp 5: low alpha alone (vs exp3's dense alone failing) to see if the dense reward is essential or if low alpha + sparse-with-HER would also work."
+    "LR_ACTOR 3e-4 -> 1e-3: faster actor convergence within the existing ~1100 updates; should refine precision without UTD's Q-bias issue.",
+    "n-step returns (n=3): stronger value targets to reduce Q boundary bias near the success threshold.",
+    "LayerNorm or dropout in critic: combined with retry of UTD=2, gives DroQ-style stability for safe extra updates.",
+    "Higher tau (0.005 -> 0.02): faster target net convergence, may help precision.",
+    "Ablate exp 5: low alpha alone (vs exp3's dense alone failing) to see if the dense reward is essential."
+  ],
+  "failed_directions_continued": [
+    "UTD=2 (N_UPDATES 1->2) on exp5 config (exp6): 0.50 -> 0.30. More updates over-commit actor to biased Q at the goal boundary."
   ]
 }

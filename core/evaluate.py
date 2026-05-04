@@ -18,6 +18,74 @@ import numpy as np
 from prepare import make_env, flatten_obs, get_action_dim, ENV_ID, FRAME_WIDTH, FRAME_HEIGHT
 
 # ---------------------------------------------------------------------------
+# Early-stop helpers (DO NOT MODIFY OR REMOVE — used by train.py to cap
+# wasted compute on diverging or already-converged runs)
+# ---------------------------------------------------------------------------
+# train.py periodically calls run_spot_eval() during training, appends the
+# result to a list, and consults should_stop_training() to decide whether
+# to break out of the training loop early. The TIME_BUDGET in prepare.py
+# becomes a ceiling — most experiments end well before it.
+
+import math
+
+
+def run_spot_eval(policy_fn, env_id=ENV_ID, n_episodes=5):
+    """Quick mid-training success-rate check. Deterministic policy, 5 episodes.
+    Returns a float in [0, 1]. Cost: ~250 env steps (~3-5 sec wall clock).
+    Does not write renders, does not affect the main eval that determines
+    keep/discard at end of training."""
+    env = make_env(env_id)
+    successes = 0
+    for _ in range(n_episodes):
+        obs, _ = env.reset()
+        done = False
+        ep_success = False
+        while not done:
+            action = policy_fn(obs)
+            obs, _, terminated, truncated, info = env.step(action)
+            if float(info.get("is_success", 0.0)) > 0.5:
+                ep_success = True
+            done = terminated or truncated
+        successes += int(ep_success)
+    env.close()
+    return successes / n_episodes
+
+
+def should_stop_training(spot_eval_history, total_training_time, critic_loss, actor_loss,
+                         min_train_seconds=600.0):
+    """Decide whether to bail out of training early.
+    Returns (stop: bool, reason: str). Reasons:
+      - "divergence" — NaN/inf or absurd loss values (kill immediately)
+      - "converged"  — last 3 spot-evals within 0.05 of each other AND mean >= 0.5
+      - "no-progress" — > min_train_seconds elapsed AND last 3 spot-evals all 0.0
+      - "" — keep training
+    """
+    # 1. Divergence: NaN/inf or extreme magnitudes. Kill at any time.
+    for val in (critic_loss, actor_loss):
+        if val is None:
+            continue
+        if math.isnan(val) or math.isinf(val):
+            return True, "divergence — NaN/inf in loss"
+        if abs(val) > 1e6:
+            return True, f"divergence — loss magnitude {val:.2e}"
+
+    # 2 & 3 need at least 3 spot-evals.
+    if len(spot_eval_history) < 3:
+        return False, ""
+    last3 = spot_eval_history[-3:]
+
+    # 2. Convergence: stable and high.
+    if max(last3) - min(last3) < 0.05 and sum(last3) / 3 >= 0.5:
+        return True, f"converged — last 3 spot-evals = {last3}"
+
+    # 3. No progress: long elapsed time, still 0 across the board.
+    if total_training_time > min_train_seconds and all(s == 0 for s in last3):
+        return True, f"no-progress — {min_train_seconds:.0f}s elapsed, last 3 spot-evals all 0"
+
+    return False, ""
+
+
+# ---------------------------------------------------------------------------
 # Protocol guard (DO NOT MODIFY OR REMOVE)
 # ---------------------------------------------------------------------------
 # Refuses to load if the most recent experiment in experiment_history.json

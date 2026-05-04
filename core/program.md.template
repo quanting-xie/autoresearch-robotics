@@ -57,6 +57,8 @@ Each experiment runs on a single GPU (or CPU). The training script runs for a **
 
 **Bookkeeping is enforced in code**: `evaluate.py` runs a guard at import time that refuses to start training if the previous experiment's `hypothesis`, `vlm_feedback_summary`, `status`, or `lesson_learned` fields are empty. If you see `RuntimeError: PROTOCOL VIOLATION` in `run.log`, that's the guard. **Do not modify or remove the guard** in `evaluate.py` — instead, follow the instructions in the error message: backfill the empty fields in `experiment_history.json`, commit it, and re-run `train.py`. Then proceed with your next experiment.
 
+**Early-stop is enforced in code**: `evaluate.py` exposes `run_spot_eval` and `should_stop_training`. `train.py` calls them inside the training loop to (a) divergence-detect (NaN/inf/extreme losses → kill immediately), (b) periodically spot-eval every ~5 min wall-clock, and (c) stop early if the policy has converged (last 3 spot-evals stable + non-trivial) or clearly isn't learning (10+ min elapsed, last 3 spot-evals all 0). `TIME_BUDGET` is now a **ceiling**, not a target — most runs end well before it. **Do not remove the early-stop calls** from `train.py`; they cap wasted compute. Look at `early_stop_reason` and `spot_eval_history` in the summary block to understand why a run stopped — that signal informs your next hypothesis.
+
 **Per-experiment render archive**: after writing `experiment_history.json`, `train.py` copies `renders/` to `renders_archive/exp{N}/` so past videos survive future iterations. **Do not remove this archive block** — the dashboard depends on it to show past experiment videos.
 
 **The first run**: Your very first run should always be to establish the baseline, so you will run the training script as is.

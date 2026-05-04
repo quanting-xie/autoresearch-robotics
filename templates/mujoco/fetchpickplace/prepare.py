@@ -45,7 +45,9 @@ if os.environ.get("MUJOCO_GL"):
 # Constants (fixed, do not modify)
 # ---------------------------------------------------------------------------
 
-TIME_BUDGET = 1800           # training time budget in seconds (30 minutes)
+TIME_BUDGET = 7200           # training time budget CEILING in seconds (2 hours).
+                             # Most runs stop earlier via convergence/divergence
+                             # detection in evaluate.py — this is just the cap.
 MAX_EPISODE_STEPS = 50       # Fetch environment default
 FRAME_WIDTH = 640            # render resolution
 FRAME_HEIGHT = 480

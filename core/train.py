@@ -26,6 +26,7 @@ from prepare import (
 from evaluate import (
     EVAL_EPISODES, RENDER_EPISODES,
     evaluate, render_episodes,
+    run_spot_eval, should_stop_training,
 )
 
 # Optional wandb logging. Default mode is "online" — assumes you've run
@@ -567,6 +568,14 @@ total_updates = 0
 smooth_critic_loss = 0
 smooth_actor_loss = 0
 
+# Early-stop instrumentation. TIME_BUDGET is now a CEILING; the run ends
+# whenever should_stop_training() (in evaluate.py) returns True OR the
+# ceiling is hit, whichever comes first.
+SPOT_EVAL_INTERVAL_SECONDS = 300.0   # every 5 min wall-clock, run a 5-ep spot eval
+last_spot_eval_at = 0.0
+spot_eval_history: list[float] = []
+early_stop_reason = ""
+
 obs, info = env.reset()
 episode_step = 0
 episode_reward = 0.0
@@ -665,8 +674,46 @@ while True:
         gc.collect()
         gc.disable()
 
-    # Time's up
+    # Early-stop checks (DO NOT REMOVE — caps wasted compute on bad runs).
+    # Cheap divergence check on every step (NaN/inf in latest losses).
+    stop, reason = should_stop_training(
+        spot_eval_history, total_training_time,
+        smooth_critic_loss, smooth_actor_loss,
+    )
+    if stop and "divergence" in reason:
+        early_stop_reason = reason
+        print(f"\n[early-stop] {reason}")
+        break
+
+    # Periodic spot-eval (~every 5 min wall-clock). Cheap (~5s) and gives
+    # the convergence/no-progress detector real signal to chew on.
+    if total_training_time - last_spot_eval_at >= SPOT_EVAL_INTERVAL_SECONDS:
+        last_spot_eval_at = total_training_time
+        # Build a deterministic policy fn from the current agent.
+        def _spot_policy_fn(obs_dict, _agent=agent):
+            return _agent.select_action(obs_dict, deterministic=True)
+        sr_spot = run_spot_eval(_spot_policy_fn, ENV_ID, n_episodes=5)
+        spot_eval_history.append(sr_spot)
+        print(f"\n[spot-eval] step {total_steps} | sr={sr_spot:.2f} | "
+              f"history={[f'{x:.2f}' for x in spot_eval_history[-5:]]}")
+        if WANDB_ENABLED:
+            wandb.log({
+                "spot_eval/success_rate": sr_spot,
+                "spot_eval/training_seconds": total_training_time,
+            }, step=total_steps)
+        # Now check non-divergence stop conditions.
+        stop, reason = should_stop_training(
+            spot_eval_history, total_training_time,
+            smooth_critic_loss, smooth_actor_loss,
+        )
+        if stop:
+            early_stop_reason = reason
+            print(f"\n[early-stop] {reason}")
+            break
+
+    # Time's up (ceiling)
     if total_training_time >= TIME_BUDGET:
+        early_stop_reason = "ceiling — TIME_BUDGET reached"
         break
 
 env.close()
@@ -806,6 +853,8 @@ print(f"total_episodes:    {total_episodes}")
 print(f"total_updates:     {total_updates}")
 print(f"num_params:        {num_params:,}")
 print(f"buffer_size:       {buffer.size:,}")
+print(f"early_stop_reason: {early_stop_reason or '(ran to ceiling)'}")
+print(f"spot_eval_history: {spot_eval_history}")
 
 if WANDB_ENABLED and wandb_run is not None:
     wandb.summary["eval/success_rate"] = float(metrics["success_rate"])
@@ -815,4 +864,6 @@ if WANDB_ENABLED and wandb_run is not None:
     wandb.summary["total_steps"] = total_steps
     wandb.summary["total_updates"] = total_updates
     wandb.summary["peak_vram_mb"] = peak_vram_mb
+    wandb.summary["early_stop_reason"] = early_stop_reason
+    wandb.summary["num_spot_evals"] = len(spot_eval_history)
     wandb.finish()
